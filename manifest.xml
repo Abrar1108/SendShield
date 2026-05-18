@@ -9,7 +9,7 @@
   <Version>1.2.0.0</Version>
   <ProviderName>Toluna</ProviderName>
   <DefaultLocale>en-US</DefaultLocale>
-  <DisplayName DefaultValue="DLP: External Send Alert PoC" />
+  <DisplayName DefaultValue="ExternalSendAlert" />
   <Description DefaultValue="Alerts users when sending emails to external recipients." />
   <IconUrl DefaultValue="https://abrar1108.github.io/ExternalSendAlert/icon-64.png" />
   <HighResolutionIconUrl DefaultValue="https://abrar1108.github.io/ExternalSendAlert/icon-128.png" />
