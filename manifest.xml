@@ -6,11 +6,11 @@
           xmlns:mailappor="http://schemas.microsoft.com/office/mailappversionoverrides/1.0"
           xsi:type="MailApp">
   <Id>b5a2794d-4aa5-4023-bf28-7136f564be10</Id>
-  <Version>1.0.0.0</Version>
+  <Version>1.1.0.0</Version>
   <ProviderName>Toluna</ProviderName>
   <DefaultLocale>en-US</DefaultLocale>
   <DisplayName DefaultValue="DLP: External Send Alert PoC" />
-  <Description DefaultValue="Alerts users when sending attachments to external recipients." />
+  <Description DefaultValue="Alerts users when sending emails to external recipients." />
   <IconUrl DefaultValue="https://abrar1108.github.io/ExternalSendAlert/icon-64.png" />
   <HighResolutionIconUrl DefaultValue="https://abrar1108.github.io/ExternalSendAlert/icon-128.png" />
   <SupportUrl DefaultValue="https://abrar1108.github.io/ExternalSendAlert/" />
@@ -75,9 +75,11 @@
                 </Group>
               </OfficeTab>
             </ExtensionPoint>
+            <!-- Smart Alerts: fires on Send -->
             <ExtensionPoint xsi:type="LaunchEvent">
               <LaunchEvents>
                 <LaunchEvent Type="OnMessageSend" FunctionName="checkExternalAttachments" SendMode="PromptUser" />
+                <LaunchEvent Type="OnMessageRecipientsChanged" FunctionName="onRecipientsChangedHandler" />
               </LaunchEvents>
               <SourceLocation resid="WebViewRuntime.Url"/>
             </ExtensionPoint>
@@ -100,7 +102,7 @@
           <bt:String id="TaskpaneButton.Label" DefaultValue="Check External"/>
         </bt:ShortStrings>
         <bt:LongStrings>
-          <bt:String id="TaskpaneButton.Tooltip" DefaultValue="Checks for external recipients with attachments before sending."/>
+          <bt:String id="TaskpaneButton.Tooltip" DefaultValue="Checks for external recipients before sending."/>
         </bt:LongStrings>
       </Resources>
     </VersionOverrides>

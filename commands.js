@@ -1,14 +1,9 @@
 /*
- * File 1: The JavaScript Engine (commands.js)
- * Purpose: OnMessageSend event handler — checks for external recipients with real attachments.
+ * External Send Alert PoC — commands.js
  *
- * Architecture Notes:
- * - Inline attachments (signature logos, social icons) are filtered out to prevent false positives.
- * - The notificationMessages API is NOT used — we rely exclusively on the Smart Alert dialog
- *   to avoid a UI race condition that can freeze the compose window on some Outlook builds.
- * - All data-gathering API calls (recipients + attachments) run concurrently via Promise.all
- *   to stay well within Microsoft's 5-second execution timeout.
- * - Internal domains are maintained in a single array for easy future expansion.
+ * Two layers of protection:
+ * 1. OnRecipientsChanged: Shows a passive yellow info banner when external recipients are added.
+ * 2. OnMessageSend: Blocks send with a "Send Anyway / Don't Send" pop-up for ANY external email.
  */
 
 // ============================================================================
@@ -22,84 +17,106 @@ const INTERNAL_DOMAINS = [
 ];
 
 // ============================================================================
-// EVENT HANDLER
+// HELPER: Extract external recipients from a combined list
 // ============================================================================
+function getExternalRecipients(allRecipients) {
+    var externals = [];
+    for (var i = 0; i < allRecipients.length; i++) {
+        var email = allRecipients[i].emailAddress;
+        var domain = email.substring(email.indexOf("@") + 1).toLowerCase();
+        if (INTERNAL_DOMAINS.indexOf(domain) === -1) {
+            externals.push(email);
+        }
+    }
+    return externals;
+}
 
-/**
- * Handles the OnMessageSend event.
- * Runs all API calls concurrently, filters inline attachments,
- * and triggers the Smart Alert pop-up if external recipients have real attachments.
- * @param {Office.AddinCommands.Event} event
- */
+// ============================================================================
+// EVENT 1: OnRecipientsChanged — Yellow info banner (non-intrusive)
+// ============================================================================
+function onRecipientsChangedHandler(event) {
+    var item = Office.context.mailbox.item;
+
+    var getTo  = new Promise(function(resolve) { item.to.getAsync(function(r)  { resolve(r.value || []); }); });
+    var getCc  = new Promise(function(resolve) { item.cc.getAsync(function(r)  { resolve(r.value || []); }); });
+    var getBcc = new Promise(function(resolve) { item.bcc.getAsync(function(r) { resolve(r.value || []); }); });
+
+    Promise.all([getTo, getCc, getBcc]).then(function(results) {
+        var allRecipients = results[0].concat(results[1], results[2]);
+        var externals = getExternalRecipients(allRecipients);
+
+        if (externals.length > 0) {
+            var externalList = externals.length <= 3
+                ? externals.join(", ")
+                : externals.slice(0, 3).join(", ") + " (+" + (externals.length - 3) + " more)";
+
+            // Show or update the yellow info banner
+            item.notificationMessages.replaceAsync("externalWarning", {
+                type: Office.MailboxEnums.ItemNotificationMessageType.InformationalMessage,
+                message: "External recipients detected: " + externalList,
+                icon: "Icon.16x16",
+                persistent: true
+            });
+        } else {
+            // Remove the banner if no external recipients remain
+            item.notificationMessages.removeAsync("externalWarning");
+        }
+
+        event.completed();
+    }).catch(function() {
+        event.completed();
+    });
+}
+
+// ============================================================================
+// EVENT 2: OnMessageSend — Block pop-up for ANY email to external recipients
+// ============================================================================
 function checkExternalAttachments(event) {
-    let item = Office.context.mailbox.item;
+    var item = Office.context.mailbox.item;
 
-    // --- Concurrent data gathering (Fix #3: eliminates sequential bottleneck) ---
-    let getTo  = new Promise(function(resolve) { item.to.getAsync(function(r)  { resolve(r.value || []); }); });
-    let getCc  = new Promise(function(resolve) { item.cc.getAsync(function(r)  { resolve(r.value || []); }); });
-    let getBcc = new Promise(function(resolve) { item.bcc.getAsync(function(r) { resolve(r.value || []); }); });
-    let getAtt = new Promise(function(resolve) { item.getAttachmentsAsync(function(r) { resolve(r.value || []); }); });
+    var getTo  = new Promise(function(resolve) { item.to.getAsync(function(r)  { resolve(r.value || []); }); });
+    var getCc  = new Promise(function(resolve) { item.cc.getAsync(function(r)  { resolve(r.value || []); }); });
+    var getBcc = new Promise(function(resolve) { item.bcc.getAsync(function(r) { resolve(r.value || []); }); });
+    var getAtt = new Promise(function(resolve) { item.getAttachmentsAsync(function(r) { resolve(r.value || []); }); });
 
-    // Execute ALL four queries simultaneously
     Promise.all([getTo, getCc, getBcc, getAtt]).then(function(results) {
-        var toRecipients  = results[0];
-        var ccRecipients  = results[1];
-        var bccRecipients = results[2];
+        var allRecipients = results[0].concat(results[1], results[2]);
         var allAttachments = results[3];
+        var externals = getExternalRecipients(allRecipients);
 
-        // --- Check for external recipients ---
-        var allRecipients = toRecipients.concat(ccRecipients, bccRecipients);
-        var externalRecipients = [];
-
-        for (var i = 0; i < allRecipients.length; i++) {
-            var emailAddress = allRecipients[i].emailAddress;
-            var domain = emailAddress.substring(emailAddress.indexOf("@") + 1).toLowerCase();
-
-            if (INTERNAL_DOMAINS.indexOf(domain) === -1) {
-                externalRecipients.push(allRecipients[i].emailAddress);
+        if (externals.length > 0) {
+            // Count real (non-inline) attachments for the message
+            var realAttachments = [];
+            for (var j = 0; j < allAttachments.length; j++) {
+                if (!allAttachments[j].isInline) {
+                    realAttachments.push(allAttachments[j]);
+                }
             }
-        }
 
-        var hasExternalRecipients = externalRecipients.length > 0;
+            var externalList = externals.length <= 5
+                ? externals.join(", ")
+                : externals.slice(0, 5).join(", ") + " (+" + (externals.length - 5) + " more)";
 
-        // --- Filter out inline/embedded attachments (Fix #1: eliminates signature false positives) ---
-        // Outlook treats embedded signature images (company logos, social media icons)
-        // as attachments with isInline = true. We must ignore these.
-        var realAttachments = [];
-        for (var j = 0; j < allAttachments.length; j++) {
-            if (!allAttachments[j].isInline) {
-                realAttachments.push(allAttachments[j]);
+            var alertMessage = "EXTERNAL SEND ALERT\n\n" +
+                "You are sending an email to external recipient(s):\n" +
+                externalList + "\n\n";
+
+            if (realAttachments.length > 0) {
+                alertMessage += "This email contains " + realAttachments.length + " attachment(s).\n\n";
             }
-        }
 
-        var hasRealAttachments = realAttachments.length > 0;
+            alertMessage += "Please verify you are authorized to send this email outside the organization.";
 
-        // --- Decision Logic ---
-        if (hasExternalRecipients && hasRealAttachments) {
-            // Build a clear, actionable message for the Smart Alert pop-up
-            var externalList = externalRecipients.length <= 5
-                ? externalRecipients.join(", ")
-                : externalRecipients.slice(0, 5).join(", ") + " (+" + (externalRecipients.length - 5) + " more)";
-
-            var alertMessage =
-                "⚠ EXTERNAL SEND ALERT\n\n" +
-                "You are sending " + realAttachments.length + " attachment(s) to external recipient(s):\n" +
-                externalList + "\n\n" +
-                "Please verify that you are authorized to share these files outside the organization.";
-
-            // Fix #2: Only use event.completed — no notificationMessages.addAsync call.
-            // This avoids the UI race condition that can freeze the compose window.
             event.completed({
                 allowEvent: false,
                 errorMessage: alertMessage
             });
         } else {
-            // No risk detected — allow the email to send normally
+            // All recipients are internal — allow send
             event.completed({ allowEvent: true });
         }
 
-    }).catch(function(error) {
-        // Fail-safe: if the API errors out, allow send to avoid blocking business email
+    }).catch(function() {
         event.completed({ allowEvent: true });
     });
 }
@@ -109,4 +126,5 @@ function checkExternalAttachments(event) {
 // ============================================================================
 if (Office.actions && Office.actions.associate) {
     Office.actions.associate("checkExternalAttachments", checkExternalAttachments);
+    Office.actions.associate("onRecipientsChangedHandler", onRecipientsChangedHandler);
 }
