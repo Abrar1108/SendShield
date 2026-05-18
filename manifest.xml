@@ -5,7 +5,7 @@
           xmlns:bt="http://schemas.microsoft.com/office/officeappbasictypes/1.0"
           xsi:type="MailApp">
   <Id>b5a2794d-4aa5-4023-bf28-7136f564be10</Id>
-  <Version>3.5.0.0</Version>
+  <Version>3.6.0.0</Version>
   <ProviderName>Toluna</ProviderName>
   <DefaultLocale>en-US</DefaultLocale>
   <DisplayName DefaultValue="ExternalSendAlert" />
@@ -21,7 +21,7 @@
   </Hosts>
   <Requirements>
     <Sets>
-      <Set Name="Mailbox" MinVersion="1.12" />
+      <Set Name="Mailbox" MinVersion="1.3" />
     </Sets>
   </Requirements>
   <FormSettings>
@@ -37,15 +37,14 @@
   </Rule>
   <DisableEntityHighlighting>false</DisableEntityHighlighting>
 
-  <VersionOverrides xmlns="http://schemas.microsoft.com/office/mailappversionoverrides/1.1" xsi:type="VersionOverridesV1_1">
+  <VersionOverrides xmlns="http://schemas.microsoft.com/office/mailappversionoverrides" xsi:type="VersionOverridesV1_0">
     <Requirements>
-      <bt:Sets DefaultMinVersion="1.12">
+      <bt:Sets DefaultMinVersion="1.3">
         <bt:Set Name="Mailbox" />
       </bt:Sets>
     </Requirements>
     <Hosts>
       <Host xsi:type="MailHost">
-
         <DesktopFormFactor>
           <FunctionFile resid="Commands.Url" />
           <ExtensionPoint xsi:type="MessageComposeCommandSurface">
@@ -70,12 +69,6 @@
               </Group>
             </OfficeTab>
           </ExtensionPoint>
-          <ExtensionPoint xsi:type="LaunchEvent">
-            <LaunchEvents>
-              <LaunchEvent Type="OnMessageSend" FunctionName="onMessageSendHandler" />
-            </LaunchEvents>
-            <SourceLocation resid="Commands.Url"/>
-          </ExtensionPoint>
         </DesktopFormFactor>
       </Host>
     </Hosts>
@@ -87,7 +80,6 @@
       </bt:Images>
       <bt:Urls>
         <bt:Url id="Commands.Url" DefaultValue="https://abrar1108.github.io/ExternalSendAlert/commands.html" />
-        <bt:Url id="WebViewRuntime.Url" DefaultValue="https://abrar1108.github.io/ExternalSendAlert/commands.html" />
         <bt:Url id="JSRuntime.Url" DefaultValue="https://abrar1108.github.io/ExternalSendAlert/commands.js" />
       </bt:Urls>
       <bt:ShortStrings>
@@ -98,5 +90,26 @@
         <bt:String id="TaskpaneButton.Tooltip" DefaultValue="Checks for external recipients before sending."/>
       </bt:LongStrings>
     </Resources>
+
+    <VersionOverrides xmlns="http://schemas.microsoft.com/office/mailappversionoverrides/1.1" xsi:type="VersionOverridesV1_1">
+      <Requirements>
+        <bt:Sets DefaultMinVersion="1.12">
+          <bt:Set Name="Mailbox" />
+        </bt:Sets>
+      </Requirements>
+      <Hosts>
+        <Host xsi:type="MailHost">
+          <DesktopFormFactor>
+            <ExtensionPoint xsi:type="LaunchEvent">
+              <LaunchEvents>
+                <LaunchEvent Type="OnMessageSend" FunctionName="onMessageSendHandler" />
+              </LaunchEvents>
+              <SourceLocation resid="Commands.Url"/>
+            </ExtensionPoint>
+          </DesktopFormFactor>
+        </Host>
+      </Hosts>
+    </VersionOverrides>
+
   </VersionOverrides>
 </OfficeApp>
