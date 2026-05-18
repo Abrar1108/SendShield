@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+ * File 3: The Routing Pointer (manifest.xml)
+ * Purpose: Configuration file telling Outlook where to find the HTML/JS, permissions, and event hooks.
+-->
+<OfficeApp
+          xmlns="http://schemas.microsoft.com/office/appforoffice/1.1"
+          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+          xmlns:bt="http://schemas.microsoft.com/office/officeappbasictypes/1.0"
+          xmlns:mailappor="http://schemas.microsoft.com/office/mailappversionoverrides/1.0"
+          xsi:type="MailApp">
+  
+  <!-- Unique identifier for the add-in. Do not change once deployed -->
+  <Id>b5a2794d-4aa5-4023-bf28-7136f564be10</Id>
+  <Version>1.0.0.0</Version>
+  <ProviderName>Toluna</ProviderName>
+  <DefaultLocale>en-US</DefaultLocale>
+  
+  <DisplayName DefaultValue="DLP: External Send Alert PoC" />
+  <Description DefaultValue="Proof of Concept for blocking external emails with attachments." />
+  
+  <!-- Placeholder icons (Can be replaced with real icon URLs) -->
+  <IconUrl DefaultValue="https://developer.microsoft.com/en-us/microsoft-365/favicon.ico" />
+  <HighResolutionIconUrl DefaultValue="https://developer.microsoft.com/en-us/microsoft-365/favicon.ico" />
+  <SupportUrl DefaultValue="https://abrar1108.github.io/ExternalSendAlert/" />
+  
+  <!-- Important: Must list your GitHub Pages domain here -->
+  <AppDomains>
+    <AppDomain>https://abrar1108.github.io</AppDomain>
+  </AppDomains>
+  
+  <Hosts>
+    <Host Name="Mailbox" />
+  </Hosts>
+  
+  <!-- Requires Mailbox 1.12 for Smart Alerts (OnMessageSend) -->
+  <Requirements>
+    <Sets>
+      <Set Name="Mailbox" MinVersion="1.12" />
+    </Sets>
+  </Requirements>
+  
+  <FormSettings>
+    <Form xsi:type="ItemEdit">
+      <DesktopSettings>
+        <SourceLocation DefaultValue="https://abrar1108.github.io/ExternalSendAlert/commands.html"/>
+      </DesktopSettings>
+    </Form>
+  </FormSettings>
+  
+  <Permissions>ReadWriteItem</Permissions>
+  <Rule xsi:type="RuleCollection" Mode="Or">
+    <Rule xsi:type="ItemIs" ItemType="Message" FormType="Edit" />
+  </Rule>
+  <DisableEntityHighlighting>false</DisableEntityHighlighting>
+  
+  <!-- Event-Based Activation overrides -->
+  <VersionOverrides xmlns="http://schemas.microsoft.com/office/mailappversionoverrides/1.1" xsi:type="VersionOverridesV1_1">
+    <Requirements>
+      <bt:Sets DefaultMinVersion="1.12">
+        <bt:Set Name="Mailbox" />
+      </bt:Sets>
+    </Requirements>
+    <Hosts>
+      <Host xsi:type="MailHost">
+        <DesktopFormFactor>
+          <!-- Extension point specifically for Smart Alerts (Event-based activation) -->
+          <ExtensionPoint xsi:type="LaunchEvent">
+            <LaunchEvents>
+              <!-- Hooks into the item send event and points to our checkExternalAttachments function -->
+              <!-- SendMode="promptUser" natively displays a pop-up allowing the user to "Send Anyway" or "Don't Send" (like SendGuard) -->
+              <LaunchEvent Type="OnMessageSend" FunctionName="checkExternalAttachments" SendMode="promptUser" />
+            </LaunchEvents>
+            <!-- Source location for the JavaScript file executing the LaunchEvent -->
+            <SourceLocation resid="CommandsHtmlResource" />
+          </ExtensionPoint>
+        </DesktopFormFactor>
+      </Host>
+    </Hosts>
+    
+    <Resources>
+      <bt:Urls>
+        <!-- The exact HTTPS path to your commands.html hosted on GitHub Pages -->
+        <!-- Replace [your-username] and [toluna-dlp-poc] with your actual GitHub details -->
+        <bt:Url id="CommandsHtmlResource" DefaultValue="https://abrar1108.github.io/ExternalSendAlert/commands.html" />
+      </bt:Urls>
+    </Resources>
+  </VersionOverrides>
+</OfficeApp>

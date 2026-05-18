@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<!--
+ * File 2: The UI Container (commands.html)
+ * Purpose: Securely loads Office.js library and references the background JavaScript file.
+-->
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge">
+    <title>External Send Alert PoC</title>
+    
+    <!-- Microsoft Office JavaScript API -->
+    <script type="text/javascript" src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"></script>
+    
+    <!-- Our custom logic engine -->
+    <script type="text/javascript" src="commands.js"></script>
+</head>
+<body>
+    <!-- 
+      This page is required by Microsoft Outlook to host the JavaScript context.
+      It runs invisibly in the background during the OnMessageSend event. 
+    -->
+</body>
+</html>
