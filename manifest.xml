@@ -19,9 +19,9 @@
   <DisplayName DefaultValue="DLP: External Send Alert PoC" />
   <Description DefaultValue="Proof of Concept for blocking external emails with attachments." />
   
-  <!-- Placeholder icons (Can be replaced with real icon URLs) -->
-  <IconUrl DefaultValue="https://developer.microsoft.com/en-us/microsoft-365/favicon.ico" />
-  <HighResolutionIconUrl DefaultValue="https://developer.microsoft.com/en-us/microsoft-365/favicon.ico" />
+  <!-- Placeholder icons (Must be .png or .jpg for Microsoft validation) -->
+  <IconUrl DefaultValue="https://raw.githubusercontent.com/OfficeDev/Office-Add-in-NodeJS-SSO/master/assets/icon-64.png" />
+  <HighResolutionIconUrl DefaultValue="https://raw.githubusercontent.com/OfficeDev/Office-Add-in-NodeJS-SSO/master/assets/icon-128.png" />
   <SupportUrl DefaultValue="https://abrar1108.github.io/ExternalSendAlert/" />
   
   <!-- Important: Must list your GitHub Pages domain here -->
