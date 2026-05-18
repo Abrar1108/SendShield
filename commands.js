@@ -163,12 +163,11 @@ function onButtonClickHandler(event) {
 }
 
 // ============================================================================
-// FUNCTION ASSOCIATION — Wrapped in Office.onReady for safe initialization
+// FUNCTION ASSOCIATION — Must be at top level, NOT inside Office.onReady().
+// Microsoft docs: "In classic Outlook on Windows, when the JavaScript function
+// specified in the manifest to handle an event runs, code in Office.onReady()
+// and Office.initialize isn't run."
 // ============================================================================
-Office.onReady(function() {
-    if (Office.actions && Office.actions.associate) {
-        Office.actions.associate("onMessageSendHandler", onMessageSendHandler);
-        Office.actions.associate("onRecipientsChangedHandler", onRecipientsChangedHandler);
-        Office.actions.associate("onButtonClickHandler", onButtonClickHandler);
-    }
-});
+Office.actions.associate("onMessageSendHandler", onMessageSendHandler);
+Office.actions.associate("onRecipientsChangedHandler", onRecipientsChangedHandler);
+Office.actions.associate("onButtonClickHandler", onButtonClickHandler);
