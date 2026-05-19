@@ -23,7 +23,6 @@ function getExternalRecipients(allRecipients) {
     var externals = [];
     for (var i = 0; i < allRecipients.length; i++) {
         var email = allRecipients[i].emailAddress;
-        // Guard against malformed or missing email addresses
         if (!email || email.indexOf("@") === -1) continue;
         var domain = email.substring(email.indexOf("@") + 1).toLowerCase();
         if (INTERNAL_DOMAINS.indexOf(domain) === -1) {
@@ -42,6 +41,41 @@ function getAllRecipients(item) {
     var getBcc = new Promise(function(resolve) { item.bcc.getAsync(function(r) { resolve(r.value || []); }); });
     return Promise.all([getTo, getCc, getBcc]).then(function(results) {
         return results[0].concat(results[1], results[2]);
+    });
+}
+
+// ============================================================================
+// HELPER: Safely fetch attachments — getAttachmentsAsync needs Mailbox 1.8.
+// Returns 0 if unavailable so the handler never hangs.
+// ============================================================================
+function getAttachmentCount(item) {
+    return new Promise(function(resolve) {
+        try {
+            // Check if the method exists before calling it
+            if (typeof item.getAttachmentsAsync !== "function") {
+                resolve(0);
+                return;
+            }
+            // Safety timeout — resolve with 0 if it takes more than 2 seconds
+            var timedOut = false;
+            var timer = setTimeout(function() {
+                timedOut = true;
+                resolve(0);
+            }, 2000);
+
+            item.getAttachmentsAsync(function(r) {
+                if (timedOut) return;
+                clearTimeout(timer);
+                var attachments = r.value || [];
+                var count = 0;
+                for (var j = 0; j < attachments.length; j++) {
+                    if (!attachments[j].isInline) count++;
+                }
+                resolve(count);
+            });
+        } catch (e) {
+            resolve(0);
+        }
     });
 }
 
@@ -81,25 +115,16 @@ function onRecipientsChangedHandler(event) {
 function onMessageSendHandler(event) {
     var item = Office.context.mailbox.item;
 
+    // Run recipients and attachments in parallel, with attachments being safe/optional
     var recipientsPromise = getAllRecipients(item);
-    var attachmentsPromise = new Promise(function(resolve) {
-        item.getAttachmentsAsync(function(r) { resolve(r.value || []); });
-    });
+    var attachmentCountPromise = getAttachmentCount(item);
 
-    Promise.all([recipientsPromise, attachmentsPromise]).then(function(results) {
-        var allRecipients = results[0];
-        var allAttachments = results[1];
+    Promise.all([recipientsPromise, attachmentCountPromise]).then(function(results) {
+        var allRecipients       = results[0];
+        var realAttachmentCount = results[1];
         var externals = getExternalRecipients(allRecipients);
 
         if (externals.length > 0) {
-            // Count real (non-inline) attachments
-            var realAttachmentCount = 0;
-            for (var j = 0; j < allAttachments.length; j++) {
-                if (!allAttachments[j].isInline) {
-                    realAttachmentCount++;
-                }
-            }
-
             var externalList = externals.length <= 3
                 ? externals.join(", ")
                 : externals.slice(0, 3).join(", ") + " (+" + (externals.length - 3) + " more)";
@@ -112,7 +137,6 @@ function onMessageSendHandler(event) {
 
             alertMessage += "Verify you are authorized to send outside the organization.";
 
-            // Safety trim to avoid Outlook truncation (max ~250 chars)
             if (alertMessage.length > 240) {
                 alertMessage = alertMessage.substring(0, 237) + "...";
             }
@@ -164,11 +188,7 @@ function onButtonClickHandler(event) {
 
 // ============================================================================
 // FUNCTION ASSOCIATION — Must be at top level, NOT inside Office.onReady().
-// Microsoft docs: "In classic Outlook on Windows, when the JavaScript function
-// specified in the manifest to handle an event runs, code in Office.onReady()
-// and Office.initialize isn't run."
 // ============================================================================
 Office.actions.associate("onMessageSendHandler", onMessageSendHandler);
 Office.actions.associate("onButtonClickHandler", onButtonClickHandler);
-// FIX 2: Added missing association for onRecipientsChangedHandler
 Office.actions.associate("onRecipientsChangedHandler", onRecipientsChangedHandler);
