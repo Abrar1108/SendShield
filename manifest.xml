@@ -10,8 +10,8 @@
   <DefaultLocale>en-US</DefaultLocale>
   <DisplayName DefaultValue="SendShield" />
   <Description DefaultValue="Alerts users when sending emails to external recipients." />
-  <IconUrl DefaultValue="https://abrar1108.github.io/SendShield/shield-64.png" />
-  <HighResolutionIconUrl DefaultValue="https://abrar1108.github.io/SendShield/shield-128.png" />
+  <IconUrl DefaultValue="https://abrar1108.github.io/SendShield/sendshield-64.png" />
+  <HighResolutionIconUrl DefaultValue="https://abrar1108.github.io/SendShield/sendshield-128.png" />
   <SupportUrl DefaultValue="https://abrar1108.github.io/SendShield/" />
   <AppDomains>
     <AppDomain>https://abrar1108.github.io</AppDomain>
@@ -87,9 +87,9 @@
       </Hosts>
       <Resources>
         <bt:Images>
-          <bt:Image id="Shield.16x16" DefaultValue="https://abrar1108.github.io/SendShield/shield-16.png"/>
-          <bt:Image id="Shield.32x32" DefaultValue="https://abrar1108.github.io/SendShield/shield-32.png"/>
-          <bt:Image id="Shield.80x80" DefaultValue="https://abrar1108.github.io/SendShield/shield-80.png"/>
+          <bt:Image id="Shield.16x16" DefaultValue="https://abrar1108.github.io/SendShield/sendshield-16.png"/>
+          <bt:Image id="Shield.32x32" DefaultValue="https://abrar1108.github.io/SendShield/sendshield-32.png"/>
+          <bt:Image id="Shield.80x80" DefaultValue="https://abrar1108.github.io/SendShield/sendshield-80.png"/>
         </bt:Images>
         <bt:Urls>
           <bt:Url id="Commands.Url" DefaultValue="https://abrar1108.github.io/SendShield/handler_v11.html" />
