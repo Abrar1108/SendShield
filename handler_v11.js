@@ -58,99 +58,121 @@ function blockWithMessage(event, externals, attachmentNames) {
 // EVENT HANDLER: On Message Send (Blocks/Prompts if External)
 // -------------------------------------------------------------
 function onMessageSendHandler(event) {
-    var item = Office.context.mailbox.item;
-    
-    // Safety timeout: Never block Outlook for more than 4.5 seconds
     var isCompleted = false;
+    var currentExternals = [];
+    
+    // Safety timeout: Never block Outlook for more than 3.5 seconds
     var safetyTimeout = setTimeout(function() {
         if (!isCompleted) {
             isCompleted = true;
-            event.completed({ allowEvent: true });
+            // If we already detected externals but attachments hung, just block them.
+            if (currentExternals.length > 0) {
+                blockWithMessage(event, currentExternals, []);
+            } else {
+                event.completed({ allowEvent: true });
+            }
         }
-    }, 4500);
+    }, 3500);
     
-    item.to.getAsync({ asyncContext: { event: event, all: [] } }, function (toResult) {
-        if (isCompleted) return;
-        var ctx = toResult.asyncContext;
-        ctx.all = ctx.all.concat(toResult.value || []);
-        
-        item.cc.getAsync({ asyncContext: ctx }, function (ccResult) {
+    try {
+        var item = Office.context.mailbox.item;
+        item.to.getAsync({ asyncContext: {} }, function (toResult) {
             if (isCompleted) return;
-            var ctx2 = ccResult.asyncContext;
-            ctx2.all = ctx2.all.concat(ccResult.value || []);
+            var allRecips = (toResult.value || []);
             
-            item.bcc.getAsync({ asyncContext: ctx2 }, function (bccResult) {
+            item.cc.getAsync({ asyncContext: {} }, function (ccResult) {
                 if (isCompleted) return;
-                var ctx3 = bccResult.asyncContext;
-                ctx3.all = ctx3.all.concat(bccResult.value || []);
+                allRecips = allRecips.concat(ccResult.value || []);
                 
-                var externals = getExternalsFromList(ctx3.all);
-                
-                if (externals.length === 0) {
-                    isCompleted = true;
-                    clearTimeout(safetyTimeout);
-                    ctx3.event.completed({ allowEvent: true });
-                } else {
-                    if (typeof item.getAttachmentsAsync === "function") {
-                        item.getAttachmentsAsync(function(attResult) {
+                item.bcc.getAsync({ asyncContext: {} }, function (bccResult) {
+                    if (isCompleted) return;
+                    allRecips = allRecips.concat(bccResult.value || []);
+                    
+                    currentExternals = getExternalsFromList(allRecips);
+                    
+                    if (currentExternals.length === 0) {
+                        isCompleted = true;
+                        clearTimeout(safetyTimeout);
+                        event.completed({ allowEvent: true });
+                    } else {
+                        if (typeof item.getAttachmentsAsync === "function") {
+                            try {
+                                item.getAttachmentsAsync(function(attResult) {
+                                    if (isCompleted) return;
+                                    isCompleted = true;
+                                    clearTimeout(safetyTimeout);
+                                    
+                                    var attachmentNames = [];
+                                    if (attResult.status === Office.AsyncResultStatus.Succeeded) {
+                                        var attachments = attResult.value || [];
+                                        for (var j = 0; j < attachments.length; j++) {
+                                            if (!attachments[j].isInline) {
+                                                attachmentNames.push(attachments[j].name);
+                                            }
+                                        }
+                                    }
+                                    blockWithMessage(event, currentExternals, attachmentNames);
+                                });
+                            } catch(e) {
+                                if (isCompleted) return;
+                                isCompleted = true;
+                                clearTimeout(safetyTimeout);
+                                blockWithMessage(event, currentExternals, []);
+                            }
+                        } else {
                             if (isCompleted) return;
                             isCompleted = true;
                             clearTimeout(safetyTimeout);
-                            
-                            var attachments = attResult.value || [];
-                            var attachmentNames = [];
-                            for (var j = 0; j < attachments.length; j++) {
-                                // Exclude inline images (like signatures)
-                                if (!attachments[j].isInline) {
-                                    attachmentNames.push(attachments[j].name);
-                                }
-                            }
-                            blockWithMessage(ctx3.event, externals, attachmentNames);
-                        });
-                    } else {
-                        if (isCompleted) return;
-                        isCompleted = true;
-                        clearTimeout(safetyTimeout);
-                        blockWithMessage(ctx3.event, externals, []);
+                            blockWithMessage(event, currentExternals, []);
+                        }
                     }
-                }
+                });
             });
         });
-    });
+    } catch(e) {
+        if (!isCompleted) {
+            isCompleted = true;
+            clearTimeout(safetyTimeout);
+            event.completed({ allowEvent: true });
+        }
+    }
 }
 
 // -------------------------------------------------------------
 // EVENT HANDLER: On Recipients Changed (Shows non-intrusive banner)
 // -------------------------------------------------------------
 function onRecipientsChangedHandler(event) {
-    var item = Office.context.mailbox.item;
-    
-    item.to.getAsync(function (toResult) {
-        var toList = toResult.value || [];
-        item.cc.getAsync(function (ccResult) {
-            var ccList = ccResult.value || [];
-            item.bcc.getAsync(function (bccResult) {
-                var bccList = bccResult.value || [];
-                var all = toList.concat(ccList, bccList);
-                var externals = getExternalsFromList(all);
-                
-                if (externals.length > 0) {
-                    item.notificationMessages.replaceAsync("extWarning", {
-                        type: Office.MailboxEnums.ItemNotificationMessageType.InformationalMessage,
-                        message: "Notice: You are sending to external recipients (" + formatList(externals) + ").",
-                        icon: "Icon.16x16",
-                        persistent: false
-                    }, function(result) {
-                        event.completed();
-                    });
-                } else {
-                    item.notificationMessages.removeAsync("extWarning", function(result) {
-                        event.completed();
-                    });
-                }
+    try {
+        var item = Office.context.mailbox.item;
+        item.to.getAsync(function (toResult) {
+            var toList = toResult.value || [];
+            item.cc.getAsync(function (ccResult) {
+                var ccList = ccResult.value || [];
+                item.bcc.getAsync(function (bccResult) {
+                    var bccList = bccResult.value || [];
+                    var all = toList.concat(ccList, bccList);
+                    var externals = getExternalsFromList(all);
+                    
+                    if (externals.length > 0) {
+                        item.notificationMessages.replaceAsync("extWarning", {
+                            type: Office.MailboxEnums.ItemNotificationMessageType.InformationalMessage,
+                            message: "Notice: You are sending to external recipients (" + formatList(externals) + ").",
+                            icon: "Shield.16x16",
+                            persistent: false
+                        }, function(result) {
+                            event.completed();
+                        });
+                    } else {
+                        item.notificationMessages.removeAsync("extWarning", function(result) {
+                            event.completed();
+                        });
+                    }
+                });
             });
         });
-    });
+    } catch (e) {
+        event.completed();
+    }
 }
 
 function onButtonClickHandler(event) {
