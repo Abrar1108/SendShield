@@ -8,7 +8,7 @@
   <Version>11.0.0.0</Version>
   <ProviderName>Toluna</ProviderName>
   <DefaultLocale>en-US</DefaultLocale>
-  <DisplayName DefaultValue="Toluna-SendShield" />
+  <DisplayName DefaultValue="SendShield" />
   <Description DefaultValue="Alerts users when sending emails to external recipients." />
   <IconUrl DefaultValue="https://abrar1108.github.io/ExternalSendAlert/shield-64.png" />
   <HighResolutionIconUrl DefaultValue="https://abrar1108.github.io/ExternalSendAlert/shield-128.png" />
@@ -97,7 +97,7 @@
           <bt:Url id="JSRuntime.Url" DefaultValue="https://abrar1108.github.io/ExternalSendAlert/handler_v11.js" />
         </bt:Urls>
         <bt:ShortStrings>
-          <bt:String id="GroupLabel" DefaultValue="Toluna-SendShield"/>
+          <bt:String id="GroupLabel" DefaultValue="SendShield"/>
           <bt:String id="TaskpaneButton.Label" DefaultValue="Check External"/>
         </bt:ShortStrings>
         <bt:LongStrings>
