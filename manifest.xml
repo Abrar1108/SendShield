@@ -5,7 +5,7 @@
           xmlns:bt="http://schemas.microsoft.com/office/officeappbasictypes/1.0"
           xsi:type="MailApp">
   <Id>b5a2794d-4aa5-4023-bf28-7136f564be10</Id>
-  <Version>4.9.0.0</Version>
+  <Version>5.0.0.0</Version>
   <ProviderName>Toluna</ProviderName>
   <DefaultLocale>en-US</DefaultLocale>
   <DisplayName DefaultValue="ExternalSendAlert" />
@@ -27,7 +27,7 @@
   <FormSettings>
     <Form xsi:type="ItemEdit">
       <DesktopSettings>
-        <SourceLocation DefaultValue="https://abrar1108.github.io/ExternalSendAlert/commands.html"/>
+        <SourceLocation DefaultValue="https://abrar1108.github.io/ExternalSendAlert/runtime.html"/>
       </DesktopSettings>
     </Form>
   </FormSettings>
@@ -46,7 +46,7 @@
     <Hosts>
       <Host xsi:type="MailHost">
         <DesktopFormFactor>
-          <FunctionFile resid="Commands.Url" />
+          <FunctionFile resid="Runtime.Url" />
           <ExtensionPoint xsi:type="MessageComposeCommandSurface">
             <OfficeTab id="TabDefault">
               <Group id="msgComposeGroup">
@@ -79,7 +79,7 @@
         <bt:Image id="Icon.80x80" DefaultValue="https://abrar1108.github.io/ExternalSendAlert/icon-128.png"/>
       </bt:Images>
       <bt:Urls>
-        <bt:Url id="Commands.Url" DefaultValue="https://abrar1108.github.io/ExternalSendAlert/commands.html" />
+        <bt:Url id="Runtime.Url" DefaultValue="https://abrar1108.github.io/ExternalSendAlert/runtime.html" />
       </bt:Urls>
       <bt:ShortStrings>
         <bt:String id="GroupLabel" DefaultValue="External Send Alert"/>
@@ -90,10 +90,8 @@
       </bt:LongStrings>
     </Resources>
 
-    <!-- V1_1 required for event-based activation (OnMessageSend, OnMessageRecipientsChanged) -->
     <VersionOverrides xmlns="http://schemas.microsoft.com/office/mailappversionoverrides/1.1" xsi:type="VersionOverridesV1_1">
       <Requirements>
-        <!-- FIX 3: Lowered from 1.12 to 1.5 — minimum version for OnMessageSend in OWA -->
         <bt:Sets DefaultMinVersion="1.5">
           <bt:Set Name="Mailbox" />
         </bt:Sets>
@@ -101,27 +99,24 @@
       <Hosts>
         <Host xsi:type="MailHost">
           <Runtimes>
-            <Runtime resid="WebViewRuntime.Url">
-              <Override type="javascript" resid="JSRuntime.Url"/>
+            <Runtime resid="Runtime.Url">
+              <Override type="javascript" resid="Runtime.Url"/>
             </Runtime>
           </Runtimes>
           <DesktopFormFactor>
             <ExtensionPoint xsi:type="LaunchEvent">
               <LaunchEvents>
                 <LaunchEvent Type="OnMessageSend" FunctionName="onMessageSendHandler" SendMode="PromptUser" />
-                <!-- FIX 1: Added missing OnMessageRecipientsChanged event -->
                 <LaunchEvent Type="OnMessageRecipientsChanged" FunctionName="onRecipientsChangedHandler" />
               </LaunchEvents>
-              <SourceLocation resid="WebViewRuntime.Url"/>
+              <SourceLocation resid="Runtime.Url"/>
             </ExtensionPoint>
           </DesktopFormFactor>
         </Host>
       </Hosts>
-      <!-- FIX 5: Only declare resources unique to this block — no duplicate string IDs -->
       <Resources>
         <bt:Urls>
-          <bt:Url id="WebViewRuntime.Url" DefaultValue="https://abrar1108.github.io/ExternalSendAlert/commands.html" />
-          <bt:Url id="JSRuntime.Url" DefaultValue="https://abrar1108.github.io/ExternalSendAlert/commands.js" />
+          <bt:Url id="Runtime.Url" DefaultValue="https://abrar1108.github.io/ExternalSendAlert/runtime.html" />
         </bt:Urls>
       </Resources>
     </VersionOverrides>
