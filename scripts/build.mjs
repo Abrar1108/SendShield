@@ -1,5 +1,5 @@
 // Builds the static site into public/:
-//  - copies src/ to public/
+//  - copies src/ to public/ (the manifest is served live by api/manifest.js)
 //  - fills placeholders (__BASE_URL__, __VERSION__, __DEFAULT_CONFIG__ ...) in text files
 //  - bundles core.js + runtime.js + handler.js into addin/handler.js (the classic Outlook
 //    JS-only runtime loads a single file)
@@ -9,33 +9,19 @@ import { cpSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFi
 import { dirname, extname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { DEFAULT_CONFIG } from "../lib/defaults.js";
+import { resolveBaseUrl } from "../lib/baseurl.js";
+import { APP_VERSION } from "../lib/manifest.js";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const src = join(root, "src");
 const out = join(root, "public");
-const pkg = JSON.parse(readFileSync(join(root, "package.json"), "utf8"));
-
-function resolveBaseUrl() {
-    const env = process.env;
-    let base = env.SENDSHIELD_BASE_URL;
-    if (!base && env.VERCEL_ENV === "production" && env.VERCEL_PROJECT_PRODUCTION_URL) base = env.VERCEL_PROJECT_PRODUCTION_URL;
-    if (!base && env.VERCEL_URL) base = env.VERCEL_URL;
-    if (!base) base = "http://localhost:3000";
-    if (!/^https?:\/\//.test(base)) base = "https://" + base;
-    return base.replace(/\/+$/, "");
-}
 
 const baseUrl = resolveBaseUrl();
-const version = pkg.version;
-const manifestVersion = version.split(".").concat(["0", "0", "0", "0"]).slice(0, 4).join(".");
-const isProduction = process.env.VERCEL_ENV === "production";
+const version = APP_VERSION;
 
 const replacements = {
     __BASE_URL__: baseUrl,
     __VERSION__: version,
-    __MANIFEST_VERSION__: manifestVersion,
-    __ADDIN_ID__: process.env.SENDSHIELD_ADDIN_ID || pkg.sendshield.addinId,
-    __DISPLAY_NAME__: process.env.SENDSHIELD_DISPLAY_NAME || (isProduction || !process.env.VERCEL_ENV ? "SendShield" : "SendShield (preview)"),
     __DEFAULT_CONFIG__: JSON.stringify(DEFAULT_CONFIG),
     __BUILD_TIME__: new Date().toISOString()
 };
@@ -78,4 +64,4 @@ if (leftovers.length) {
     process.exit(1);
 }
 
-console.log(`SendShield ${version} built for ${baseUrl} (manifest ${manifestVersion})`);
+console.log(`SendShield ${version} built for ${baseUrl}`);

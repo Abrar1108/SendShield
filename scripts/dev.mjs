@@ -24,6 +24,7 @@ function applyHeaders(path, res) {
 createServer(async (req, res) => {
     const url = new URL(req.url, `http://localhost:${port}`);
     let path = decodeURIComponent(url.pathname);
+    for (const rule of vercel.rewrites || []) if (rule.source === path) path = rule.destination;
     try {
         if (path.startsWith("/api/")) {
             const file = join(root, normalize(path).replace(/\/$/, "") + ".js");

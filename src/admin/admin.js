@@ -10,9 +10,8 @@
         fail_open: "Fail-open"
     };
     var PLATFORM_LABELS = { PC: "Classic Outlook (Windows)", OfficeOnline: "Outlook on the web / new Outlook", Mac: "Outlook for Mac", iOS: "iOS", Android: "Android", unknown: "Unknown" };
-    var MESSAGE_KEYS = ["blockPrompt", "attachmentPrompt", "fallbackPrompt", "reviewButton", "banner", "taskpaneIntro"];
 
-    var state = { session: null, config: null, saved: null, days: 30, report: null };
+    var state = { session: null, config: null, saved: null, days: 30, report: null, meta: null };
 
     // ------------------------------------------------------------------ helpers
     function $(id) { return document.getElementById(id); }
@@ -141,6 +140,8 @@
         if (!tabs.some(function (t) { return t.getAttribute("data-tab") === name; })) name = "overview";
         tabs.forEach(function (t) { t.setAttribute("aria-selected", String(t.getAttribute("data-tab") === name)); });
         qsa("[data-panel]").forEach(function (p) { p.hidden = p.getAttribute("data-panel") !== name; });
+        $("savebar").hidden = FORM_TABS.indexOf(name) === -1;
+        if (name !== "messages" && name !== "settings") $("settings-errors").hidden = true;
         if (location.hash.replace("#", "") !== name) history.replaceState(null, "", "#" + name);
         reveal(document.querySelector('[data-panel="' + name + '"]'));
         if (name === "audit") loadAudit();
@@ -161,52 +162,165 @@
             : "Using built-in default settings";
     }
 
-    // ------------------------------------------------------------------ settings
+    // ------------------------------------------------------------------ settings & messages
+    var Core = window.SendShieldCore;
     var form = $("settings-form");
+    var FORM_TABS = ["settings", "messages"];
+    var GROUPS = {
+        dialog: { title: "Send prompt", text: "Shown by Outlook when a user clicks Send with unconfirmed external recipients." },
+        fallback: { title: "Safety-net prompt", text: "Shown instead after repeated blocked sends, with Outlook's Send anyway button." },
+        banner: { title: "Compose banner", text: "Shown at the top of the email while external recipients are added." },
+        taskpane: { title: "Task pane", text: "The panel where users confirm recipients and attachments." },
+        ribbon: { title: "Outlook ribbon", text: "Stored in the manifest - after changing, download and upload the manifest again." }
+    };
+    var SAMPLE = {
+        externals: ["anna.smith@unilever.com", "mark@nestle.com"],
+        names: ["Anna Smith", "Mark Jones"],
+        fields: ["to", "cc"],
+        attachments: ["Q3 results.xlsx"],
+        internal: 3
+    };
+    var previewMode = "dialog";
 
     function lines(list) { return (list || []).join("\n"); }
     function parseLines(text) { return text.split(/[\s,;]+/).map(function (s) { return s.trim(); }).filter(Boolean); }
 
+    function buildMessageEditor(fields) {
+        var host = $("message-groups");
+        if (host.getAttribute("data-built")) return;
+        host.setAttribute("data-built", "1");
+        Object.keys(GROUPS).forEach(function (where, gi) {
+            var card = el("article", "card msg-group reveal");
+            card.setAttribute("data-index", String(gi));
+            var head = el("div", "card-head");
+            var titles = el("div");
+            titles.appendChild(el("h3", "", GROUPS[where].title));
+            titles.appendChild(el("p", "", GROUPS[where].text));
+            head.appendChild(titles);
+            card.appendChild(head);
+
+            fields.filter(function (f) { return f.where === where; }).forEach(function (f) {
+                var wrap = el("div", "msg-field");
+                var label = el("label", "field");
+                var top = el("span");
+                top.appendChild(document.createTextNode(f.label));
+                var dot = el("span", "modified-dot");
+                dot.hidden = true;
+                dot.title = "Changed from default";
+                dot.setAttribute("data-dot", f.key);
+                top.appendChild(dot);
+                var counter = el("em", "counter");
+                counter.setAttribute("data-for", f.key);
+                top.appendChild(counter);
+                label.appendChild(top);
+                var input = f.multiline ? el("textarea") : el("input");
+                if (!f.multiline) input.type = "text";
+                else input.rows = 2;
+                input.name = "messages." + f.key;
+                input.maxLength = f.limit;
+                input.setAttribute("data-where", f.where);
+                input.addEventListener("focus", function () { setPreview(f.where === "fallback" ? "fallback" : f.where); });
+                label.appendChild(input);
+                wrap.appendChild(label);
+
+                var tools = el("div", "msg-tools");
+                f.vars.forEach(function (v) {
+                    var chip = el("button", "var-chip", "{" + v + "}");
+                    chip.type = "button";
+                    chip.title = "Insert {" + v + "}";
+                    chip.addEventListener("click", function () { insertAtCursor(input, "{" + v + "}"); });
+                    tools.appendChild(chip);
+                });
+                var reset = el("button", "link-btn", "Reset to default");
+                reset.type = "button";
+                reset.setAttribute("data-reset", f.key);
+                reset.addEventListener("click", function () {
+                    input.value = state.meta.defaults.messages[f.key];
+                    input.dispatchEvent(new Event("input", { bubbles: true }));
+                });
+                tools.appendChild(reset);
+                wrap.appendChild(tools);
+                card.appendChild(wrap);
+            });
+            host.appendChild(card);
+        });
+        reveal(host);
+    }
+
+    function insertAtCursor(input, text) {
+        var start = input.selectionStart == null ? input.value.length : input.selectionStart;
+        var end = input.selectionEnd == null ? input.value.length : input.selectionEnd;
+        input.value = (input.value.slice(0, start) + text + input.value.slice(end)).slice(0, input.maxLength);
+        input.focus();
+        input.setSelectionRange(start + text.length, start + text.length);
+        input.dispatchEvent(new Event("input", { bubbles: true }));
+    }
+
+    function messageKeys() { return (state.meta ? state.meta.messageFields : []).map(function (f) { return f.key; }); }
+
     function fillForm(cfg) {
-        form.elements.enabled.checked = !!cfg.enabled;
-        form.elements.internalDomains.value = lines(cfg.internalDomains);
-        form.elements.includeSubdomains.checked = !!cfg.includeSubdomains;
-        form.elements.trustedDomains.value = lines(cfg.trustedDomains);
-        form.elements.ignoredAddresses.value = lines(cfg.ignoredAddresses);
-        form.elements.confirmAttachments.checked = !!cfg.confirmAttachments;
-        form.elements.showRecipientBanner.checked = !!cfg.showRecipientBanner;
-        form.elements.telemetryEnabled.checked = !!cfg.telemetryEnabled;
-        form.elements.failOpenTimeoutMs.value = cfg.failOpenTimeoutMs;
-        form.elements.maxBlocksBeforeFallback.value = cfg.maxBlocksBeforeFallback;
-        MESSAGE_KEYS.forEach(function (k) { form.elements["messages." + k].value = (cfg.messages || {})[k] || ""; });
-        updateCounters();
+        var e = form.elements;
+        e.enabled.checked = !!cfg.enabled;
+        e.pilotMode.checked = !!cfg.pilotMode;
+        e.pilotUsers.value = lines(cfg.pilotUsers);
+        e.internalDomains.value = lines(cfg.internalDomains);
+        e.includeSubdomains.checked = !!cfg.includeSubdomains;
+        e.trustedDomains.value = lines(cfg.trustedDomains);
+        e.ignoredAddresses.value = lines(cfg.ignoredAddresses);
+        e.confirmStyle.value = cfg.confirmStyle || "each";
+        e.confirmAttachments.checked = !!cfg.confirmAttachments;
+        e.showRecipientBanner.checked = !!cfg.showRecipientBanner;
+        e.minExternalRecipients.value = cfg.minExternalRecipients;
+        e.failOpenTimeoutMs.value = cfg.failOpenTimeoutMs;
+        e.maxBlocksBeforeFallback.value = cfg.maxBlocksBeforeFallback;
+        e.configRefreshMinutes.value = cfg.configRefreshMinutes;
+        e.telemetryEnabled.checked = !!cfg.telemetryEnabled;
+        messageKeys().forEach(function (k) { e["messages." + k].value = (cfg.messages || {})[k] || ""; });
+        updateMessageUi();
     }
 
     function readForm() {
+        var e = form.elements;
         var messages = {};
-        MESSAGE_KEYS.forEach(function (k) { messages[k] = form.elements["messages." + k].value; });
+        messageKeys().forEach(function (k) { messages[k] = e["messages." + k].value; });
         return {
-            enabled: form.elements.enabled.checked,
-            internalDomains: parseLines(form.elements.internalDomains.value),
-            includeSubdomains: form.elements.includeSubdomains.checked,
-            trustedDomains: parseLines(form.elements.trustedDomains.value),
-            ignoredAddresses: parseLines(form.elements.ignoredAddresses.value),
-            confirmAttachments: form.elements.confirmAttachments.checked,
-            showRecipientBanner: form.elements.showRecipientBanner.checked,
-            telemetryEnabled: form.elements.telemetryEnabled.checked,
-            failOpenTimeoutMs: Number(form.elements.failOpenTimeoutMs.value),
-            maxBlocksBeforeFallback: Number(form.elements.maxBlocksBeforeFallback.value),
+            enabled: e.enabled.checked,
+            pilotMode: e.pilotMode.checked,
+            pilotUsers: parseLines(e.pilotUsers.value),
+            internalDomains: parseLines(e.internalDomains.value),
+            includeSubdomains: e.includeSubdomains.checked,
+            trustedDomains: parseLines(e.trustedDomains.value),
+            ignoredAddresses: parseLines(e.ignoredAddresses.value),
+            confirmStyle: e.confirmStyle.value,
+            confirmAttachments: e.confirmAttachments.checked,
+            showRecipientBanner: e.showRecipientBanner.checked,
+            minExternalRecipients: Number(e.minExternalRecipients.value),
+            failOpenTimeoutMs: Number(e.failOpenTimeoutMs.value),
+            maxBlocksBeforeFallback: Number(e.maxBlocksBeforeFallback.value),
+            configRefreshMinutes: Number(e.configRefreshMinutes.value),
+            telemetryEnabled: e.telemetryEnabled.checked,
             messages: messages
         };
     }
 
-    function updateCounters() {
+    function updateMessageUi() {
+        $("pilot-users-field").hidden = !form.elements.pilotMode.checked;
         qsa(".counter").forEach(function (c) {
             var input = form.elements["messages." + c.getAttribute("data-for")];
-            var max = Number(input.getAttribute("maxlength"));
-            c.textContent = input.value.length + " / " + max;
-            c.classList.toggle("over", input.value.length >= max);
+            if (!input) return;
+            c.textContent = input.value.length + " / " + input.maxLength;
+            c.classList.toggle("over", input.value.length >= input.maxLength);
         });
+        if (state.meta) {
+            qsa("[data-dot]").forEach(function (dot) {
+                var key = dot.getAttribute("data-dot");
+                var changed = form.elements["messages." + key].value !== state.meta.defaults.messages[key];
+                dot.hidden = !changed;
+                var reset = document.querySelector('[data-reset="' + key + '"]');
+                if (reset) reset.hidden = !changed;
+            });
+        }
+        renderPreview();
     }
 
     function updateDirty() {
@@ -217,8 +331,8 @@
         $("save-state").textContent = dirty ? "Unsaved changes" : "No unsaved changes";
     }
 
-    form.addEventListener("input", function () { updateCounters(); updateDirty(); });
-    form.addEventListener("change", updateDirty);
+    form.addEventListener("input", function () { updateMessageUi(); updateDirty(); });
+    form.addEventListener("change", function () { updateMessageUi(); updateDirty(); });
 
     form.elements.enabled.addEventListener("change", function (e) {
         if (!e.target.checked && !window.confirm("Pause SendShield for everyone? Users will be able to send external email without confirming once you save.")) {
@@ -234,17 +348,21 @@
         updateDirty();
     });
 
+    window.addEventListener("beforeunload", function (e) {
+        if (!$("save").disabled) { e.preventDefault(); e.returnValue = ""; }
+    });
+
     form.addEventListener("submit", function (e) {
         e.preventDefault();
         $("save").disabled = true;
         $("settings-errors").hidden = true;
         api("PUT", "/api/admin/config", { config: readForm() }).then(function (data) {
-            state.config = data.config;
-            fillForm(data.config);
-            state.saved = JSON.stringify(readForm());
-            renderStatus(data);
-            updateDirty();
-            toast(data.storage ? "Settings saved" : "Saved for this session only - storage is not connected");
+            applyConfig(data);
+            if (data.manifestChanged) {
+                toast("Saved. Ribbon text changed - upload the new manifest from Install.");
+            } else {
+                toast(data.storage ? "Changes saved" : "Saved for this session only - storage is not connected");
+            }
         }).catch(function (err) {
             if (handleAuthError(err)) return;
             var box = $("settings-errors");
@@ -255,18 +373,166 @@
                 box.appendChild(ul);
             }
             box.hidden = false;
+            box.scrollIntoView({ behavior: "smooth", block: "center" });
             updateDirty();
         });
     });
 
+    function applyConfig(data) {
+        state.meta = { defaults: data.defaults, messageFields: data.messageFields };
+        buildMessageEditor(data.messageFields);
+        state.config = data.config;
+        fillForm(data.config);
+        state.saved = JSON.stringify(readForm());
+        renderStatus(data);
+        updateDirty();
+        $("manifest-version").textContent = data.manifestVersion;
+        if (data.manifestChanged) $("manifest-notice").hidden = false;
+    }
+
     function loadConfig() {
-        api("GET", "/api/admin/config").then(function (data) {
-            state.config = data.config;
-            fillForm(data.config);
-            state.saved = JSON.stringify(readForm());
-            renderStatus(data);
-            updateDirty();
-        }).catch(function (err) { if (!handleAuthError(err)) toast(err.message); });
+        api("GET", "/api/admin/config").then(applyConfig)
+            .catch(function (err) { if (!handleAuthError(err)) toast(err.message); });
+    }
+
+    // ------------------------------------------------------------------ live preview
+    qsa("#preview-switch [data-preview]").forEach(function (b) {
+        b.addEventListener("click", function () { setPreview(b.getAttribute("data-preview")); });
+    });
+
+    function setPreview(mode) {
+        previewMode = mode;
+        qsa("#preview-switch [data-preview]").forEach(function (b) {
+            b.setAttribute("aria-checked", String(b.getAttribute("data-preview") === mode));
+        });
+        renderPreview();
+    }
+
+    function m(key, values) {
+        var input = form.elements["messages." + key];
+        return Core.fillTemplate(input ? input.value : "", values || {});
+    }
+
+    function icon(size) {
+        var img = el("img");
+        img.src = "/addin/assets/sendshield-" + (size || 32) + ".png";
+        img.alt = "";
+        return img;
+    }
+
+    function olButton(text, primary) { return el("span", "ol-btn" + (primary ? " primary" : ""), text); }
+
+    function renderPreview() {
+        var host = $("preview");
+        if (!host || !state.meta) return;
+        host.innerHTML = "";
+        var list = Core.formatList(SAMPLE.externals, 3);
+        var count = SAMPLE.externals.length;
+
+        if (previewMode === "dialog" || previewMode === "fallback") {
+            var text, buttons;
+            if (previewMode === "dialog") {
+                var hint = m("hintModern", { button: form.elements["messages.reviewButton"].value });
+                text = m("blockPrompt", { count: count, list: list, hint: hint });
+                buttons = [olButton(form.elements["messages.reviewButton"].value, true)];
+            } else {
+                text = m("fallbackPrompt", { count: count, list: list });
+                buttons = [olButton("Send Anyway", true), olButton("Don't Send")];
+            }
+            var dlg = el("div", "ol ol-dialog");
+            var h = el("h4");
+            h.appendChild(icon(32));
+            h.appendChild(document.createTextNode(form.elements["messages.taskpaneTitle"].value || "SendShield"));
+            dlg.appendChild(h);
+            dlg.appendChild(el("p", "", Core.truncate(text, 250)));
+            var row = el("div", "ol-buttons");
+            buttons.forEach(function (b) { row.appendChild(b); });
+            dlg.appendChild(row);
+            host.appendChild(dlg);
+            var c = el("p", "ol-count" + (text.length > 250 ? " over" : ""), text.length + " / 250 characters" + (text.length > 250 ? " - will be cut off" : ""));
+            host.appendChild(c);
+            if (previewMode === "dialog") {
+                var legacy = el("p", "fine", "Older Outlook: " + m("hintLegacy", { ribbon: form.elements["messages.ribbonButton"].value }));
+                host.appendChild(legacy);
+            }
+            return;
+        }
+
+        if (previewMode === "banner") {
+            var compose = el("div", "ol ol-compose");
+            var banner = el("div", "ol-banner");
+            banner.appendChild(icon(16));
+            banner.appendChild(el("span", "", Core.truncate(m("banner", { count: count, list: Core.formatList(SAMPLE.externals, 2) }), 150)));
+            compose.appendChild(banner);
+            compose.appendChild(el("div", "ol-compose-row", "To: Anna Smith; Mark Jones"));
+            compose.appendChild(el("div", "ol-compose-row", "Subject: Q3 results"));
+            compose.appendChild(el("div", "ol-compose-body"));
+            host.appendChild(compose);
+            return;
+        }
+
+        if (previewMode === "ribbon") {
+            var ribbon = el("div", "ol ol-ribbon");
+            var btn = el("div", "ol-ribbon-btn");
+            btn.appendChild(icon(80));
+            btn.appendChild(el("span", "", form.elements["messages.ribbonButton"].value));
+            ribbon.appendChild(btn);
+            ribbon.appendChild(el("div", "ol-ribbon-group", form.elements["messages.ribbonGroup"].value));
+            host.appendChild(ribbon);
+            var tip = el("div", "ol ol-tooltip");
+            tip.appendChild(el("strong", "", form.elements["messages.ribbonButton"].value));
+            tip.appendChild(el("span", "", form.elements["messages.ribbonTooltip"].value));
+            host.appendChild(tip);
+            return;
+        }
+
+        // Task pane
+        var each = form.elements.confirmStyle.value !== "all";
+        var pane = el("div", "ol ol-pane");
+        var ph = el("div", "ol-pane-head");
+        ph.appendChild(icon(32));
+        ph.appendChild(el("span", "", m("taskpaneTitle")));
+        pane.appendChild(ph);
+        var body = el("div", "ol-pane-body");
+        body.appendChild(el("div", "", m("taskpaneIntro")));
+        var h5 = el("h5", "", m("recipientsHeading") + " (" + count + ")");
+        if (each) h5.appendChild(el("span", "", m("selectAll")));
+        body.appendChild(h5);
+        var ul = el("div", "ol-list");
+        SAMPLE.externals.forEach(function (addr, i) {
+            var row = el("div");
+            if (each) row.appendChild(el("span", "ol-box" + (i === 0 ? " on" : "")));
+            row.appendChild(el("span", "", addr));
+            ul.appendChild(row);
+        });
+        body.appendChild(ul);
+        if (!each) {
+            var all = el("div", "ol-check");
+            all.appendChild(el("span", "ol-box"));
+            all.appendChild(el("span", "", m("confirmAllCheckbox", { count: count })));
+            body.appendChild(all);
+        }
+        if (form.elements.confirmAttachments.checked) {
+            body.appendChild(el("h5", "", m("attachmentsHeading") + " (1)"));
+            var al = el("div", "ol-list");
+            al.appendChild(el("div", "", SAMPLE.attachments[0]));
+            body.appendChild(al);
+            var ac = el("div", "ol-check");
+            ac.appendChild(el("span", "ol-box"));
+            ac.appendChild(el("span", "", m("attachmentsCheckbox")));
+            body.appendChild(ac);
+        }
+        body.appendChild(el("div", "ol-confirm", m("confirmButton")));
+        body.appendChild(el("div", "ol-note", each ? m("remainingRecipients", { count: 1 }) : m("remainingAttachments")));
+        body.appendChild(el("div", "ol-ok", m("confirmedMessage")));
+        pane.appendChild(body);
+        var foot = el("div", "ol-foot");
+        foot.appendChild(el("span", "", m("internalSummary", { count: SAMPLE.internal })));
+        foot.appendChild(el("span", "", "v6"));
+        pane.appendChild(foot);
+        host.appendChild(pane);
+        var other = el("p", "fine", "Other task pane messages: “" + m("noExternal") + "”, “" + m("pilotInactive") + "”, “" + m("legacyNotice") + "”, “" + m("saveFailed") + "”");
+        host.appendChild(other);
     }
 
     // ------------------------------------------------------------------ reports

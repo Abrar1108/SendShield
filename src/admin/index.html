@@ -9,6 +9,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&family=Instrument+Serif&display=swap">
     <link rel="stylesheet" href="admin.css?v=__VERSION__">
+    <script src="/addin/core.js?v=__VERSION__" defer></script>
     <script src="admin.js?v=__VERSION__" defer></script>
 </head>
 <body>
@@ -72,6 +73,7 @@
             <nav class="tabs reveal" role="tablist" aria-label="Sections">
                 <button type="button" role="tab" data-tab="overview" aria-selected="true">Overview</button>
                 <button type="button" role="tab" data-tab="settings" aria-selected="false">Settings</button>
+                <button type="button" role="tab" data-tab="messages" aria-selected="false">Messages</button>
                 <button type="button" role="tab" data-tab="audit" aria-selected="false">Audit log</button>
                 <button type="button" role="tab" data-tab="install" aria-selected="false">Install</button>
             </nav>
@@ -132,110 +134,134 @@
                 </div>
             </section>
 
+            <form id="settings-form" novalidate>
             <!-- Settings -->
             <section class="panel" data-panel="settings" hidden>
-                <form id="settings-form" novalidate>
-                    <div class="settings-grid">
-                        <article class="card reveal">
-                            <div class="card-head"><h3>Protection</h3></div>
-                            <label class="switch-row">
-                                <span>
-                                    <strong>SendShield enabled</strong>
-                                    <span class="muted block-text">Turn off to stop all prompts immediately. Users' Outlook picks this up within about 15 minutes.</span>
-                                </span>
-                                <input type="checkbox" class="switch" name="enabled">
-                            </label>
-                        </article>
+                <div class="settings-grid">
+                    <article class="card reveal">
+                        <div class="card-head"><h3>Protection</h3></div>
+                        <label class="switch-row">
+                            <span>
+                                <strong>SendShield enabled</strong>
+                                <span class="muted block-text">Turn off to stop all prompts. Outlook picks this up at the next settings refresh.</span>
+                            </span>
+                            <input type="checkbox" class="switch" name="enabled">
+                        </label>
+                        <hr class="rule">
+                        <label class="switch-row">
+                            <span>
+                                <strong>Pilot mode</strong>
+                                <span class="muted block-text">Only the mailboxes below get prompts. Everyone else can send as normal.</span>
+                            </span>
+                            <input type="checkbox" class="switch" name="pilotMode">
+                        </label>
+                        <label class="field" id="pilot-users-field">
+                            <span>Pilot mailboxes <em>One email address per line.</em></span>
+                            <textarea name="pilotUsers" rows="4" spellcheck="false" class="mono-input"></textarea>
+                        </label>
+                    </article>
 
-                        <article class="card reveal">
-                            <div class="card-head"><h3>Domains</h3></div>
-                            <label class="field">
-                                <span>Internal domains <em>One per line. Never prompted.</em></span>
-                                <textarea name="internalDomains" rows="4" spellcheck="false"></textarea>
-                            </label>
-                            <label class="check">
-                                <input type="checkbox" name="includeSubdomains">
-                                <span>Include subdomains (e.g. <code>uk.toluna.com</code>)</span>
-                            </label>
-                            <label class="field">
-                                <span>Trusted external domains <em>One per line. Not prompted - use sparingly.</em></span>
-                                <textarea name="trustedDomains" rows="3" spellcheck="false"></textarea>
-                            </label>
-                            <label class="field">
-                                <span>Ignored addresses <em>System addresses added by other add-ins, e.g. Outreach.</em></span>
-                                <textarea name="ignoredAddresses" rows="3" spellcheck="false"></textarea>
-                            </label>
-                        </article>
+                    <article class="card reveal">
+                        <div class="card-head"><h3>Domains</h3></div>
+                        <label class="field">
+                            <span>Internal domains <em>One per line. Never prompted.</em></span>
+                            <textarea name="internalDomains" rows="4" spellcheck="false" class="mono-input"></textarea>
+                        </label>
+                        <label class="check">
+                            <input type="checkbox" name="includeSubdomains">
+                            <span>Include subdomains (e.g. <code>uk.toluna.com</code>)</span>
+                        </label>
+                        <label class="field">
+                            <span>Trusted external domains <em>One per line. Not prompted - use sparingly.</em></span>
+                            <textarea name="trustedDomains" rows="3" spellcheck="false" class="mono-input"></textarea>
+                        </label>
+                        <label class="field">
+                            <span>Ignored addresses <em>Hidden or system addresses added by other add-ins such as Outreach. A full address, or <code>@domain</code> for a whole domain.</em></span>
+                            <textarea name="ignoredAddresses" rows="3" spellcheck="false" class="mono-input"></textarea>
+                        </label>
+                    </article>
 
-                        <article class="card reveal">
-                            <div class="card-head"><h3>Behaviour</h3></div>
-                            <label class="check">
-                                <input type="checkbox" name="confirmAttachments">
-                                <span>Ask users to confirm attachments on external emails</span>
+                    <article class="card reveal">
+                        <div class="card-head"><h3>Confirmation</h3></div>
+                        <fieldset class="choice">
+                            <legend>How users confirm</legend>
+                            <label class="choice-card">
+                                <input type="radio" name="confirmStyle" value="each">
+                                <span><strong>Tick each recipient</strong><span class="muted block-text">Every external address is ticked individually.</span></span>
                             </label>
-                            <label class="check">
-                                <input type="checkbox" name="showRecipientBanner">
-                                <span>Show a banner while external recipients are added</span>
+                            <label class="choice-card">
+                                <input type="radio" name="confirmStyle" value="all">
+                                <span><strong>One confirmation</strong><span class="muted block-text">Recipients are listed, with one confirm-all tick.</span></span>
                             </label>
-                            <label class="check">
-                                <input type="checkbox" name="telemetryEnabled">
-                                <span>Collect usage counts for reports (domains and counts only)</span>
-                            </label>
-                            <div class="two-col">
-                                <label class="field">
-                                    <span>Fail-open after <em>Milliseconds, 1000-8000</em></span>
-                                    <input type="number" name="failOpenTimeoutMs" min="1000" max="8000" step="500">
-                                </label>
-                                <label class="field">
-                                    <span>Loop-breaker after <em>Blocked sends, 1-5</em></span>
-                                    <input type="number" name="maxBlocksBeforeFallback" min="1" max="5" step="1">
-                                </label>
-                            </div>
-                        </article>
+                        </fieldset>
+                        <label class="check">
+                            <input type="checkbox" name="confirmAttachments">
+                            <span>Also confirm attachments on external emails</span>
+                        </label>
+                        <label class="check">
+                            <input type="checkbox" name="showRecipientBanner">
+                            <span>Show a banner while external recipients are added</span>
+                        </label>
+                        <label class="field">
+                            <span>Prompt when external recipients reach <em>1 = every external email.</em></span>
+                            <input type="number" name="minExternalRecipients" min="1" max="50" step="1">
+                        </label>
+                    </article>
 
-                        <article class="card reveal">
-                            <div class="card-head"><h3>Messages</h3></div>
-                            <p class="fine">Placeholders: <code>{count}</code> <code>{list}</code> <code>{attachments}</code> <code>{hint}</code></p>
+                    <article class="card reveal">
+                        <div class="card-head"><h3>Reliability</h3></div>
+                        <div class="two-col">
                             <label class="field">
-                                <span>Send prompt <em class="counter" data-for="blockPrompt"></em></span>
-                                <textarea name="messages.blockPrompt" rows="2" maxlength="200"></textarea>
+                                <span>Fail-open after <em>Milliseconds, 1000-8000. The email sends if checking takes longer.</em></span>
+                                <input type="number" name="failOpenTimeoutMs" min="1000" max="8000" step="500">
                             </label>
                             <label class="field">
-                                <span>Attachment prompt <em class="counter" data-for="attachmentPrompt"></em></span>
-                                <textarea name="messages.attachmentPrompt" rows="2" maxlength="200"></textarea>
+                                <span>Safety net after <em>Blocked sends, 1-5. Then Outlook offers Send anyway.</em></span>
+                                <input type="number" name="maxBlocksBeforeFallback" min="1" max="5" step="1">
                             </label>
-                            <label class="field">
-                                <span>Safety-net prompt <em class="counter" data-for="fallbackPrompt"></em></span>
-                                <textarea name="messages.fallbackPrompt" rows="2" maxlength="200"></textarea>
-                            </label>
-                            <div class="two-col">
-                                <label class="field">
-                                    <span>Review button <em class="counter" data-for="reviewButton"></em></span>
-                                    <input type="text" name="messages.reviewButton" maxlength="20">
-                                </label>
-                                <label class="field">
-                                    <span>Banner <em class="counter" data-for="banner"></em></span>
-                                    <input type="text" name="messages.banner" maxlength="120">
-                                </label>
-                            </div>
-                            <label class="field">
-                                <span>Task pane introduction <em class="counter" data-for="taskpaneIntro"></em></span>
-                                <textarea name="messages.taskpaneIntro" rows="2" maxlength="300"></textarea>
-                            </label>
-                        </article>
-                    </div>
-
-                    <div class="callout red" id="settings-errors" hidden></div>
-
-                    <div class="savebar" id="savebar">
-                        <span class="muted" id="save-state">No unsaved changes</span>
-                        <div class="savebar-actions">
-                            <button type="button" class="btn ghost" id="discard" disabled>Discard</button>
-                            <button type="submit" class="btn primary" id="save" disabled>Save settings</button>
                         </div>
-                    </div>
-                </form>
+                        <label class="field">
+                            <span>Settings refresh <em>Minutes, 5-60. How often Outlook downloads these settings.</em></span>
+                            <input type="number" name="configRefreshMinutes" min="5" max="60" step="5">
+                        </label>
+                        <label class="check">
+                            <input type="checkbox" name="telemetryEnabled">
+                            <span>Collect usage counts for reports (domains and counts only)</span>
+                        </label>
+                    </article>
+                </div>
             </section>
+
+            <!-- Messages -->
+            <section class="panel" data-panel="messages" hidden>
+                <div class="messages-layout">
+                    <div class="message-groups" id="message-groups"></div>
+                    <aside class="preview-col">
+                        <div class="preview-sticky">
+                            <div class="segmented preview-switch" id="preview-switch" role="tablist" aria-label="Preview">
+                                <button type="button" data-preview="dialog" aria-checked="true" role="tab">Prompt</button>
+                                <button type="button" data-preview="fallback" aria-checked="false" role="tab">Safety net</button>
+                                <button type="button" data-preview="banner" aria-checked="false" role="tab">Banner</button>
+                                <button type="button" data-preview="taskpane" aria-checked="false" role="tab">Task pane</button>
+                                <button type="button" data-preview="ribbon" aria-checked="false" role="tab">Ribbon</button>
+                            </div>
+                            <div class="preview" id="preview" aria-live="polite"></div>
+                            <p class="fine">Preview with sample recipients. Outlook limits the prompt to 250 characters and the banner to 150.</p>
+                        </div>
+                    </aside>
+                </div>
+            </section>
+
+            <div class="callout red" id="settings-errors" hidden></div>
+
+            <div class="savebar" id="savebar" hidden>
+                <span class="muted" id="save-state">No unsaved changes</span>
+                <div class="savebar-actions">
+                    <button type="button" class="btn ghost" id="discard" disabled>Discard</button>
+                    <button type="submit" class="btn primary" id="save" disabled>Save changes</button>
+                </div>
+            </div>
+            </form>
 
             <!-- Audit -->
             <section class="panel" data-panel="audit" hidden>
@@ -255,12 +281,14 @@
                 <div class="bento install">
                     <article class="card reveal">
                         <div class="card-head"><h3>Add-in manifest</h3></div>
-                        <p class="muted">Upload this file in Outlook or the Microsoft 365 admin center. It always points at this deployment.</p>
+                        <p class="muted">Upload this file in Outlook or the Microsoft 365 admin center. It always points at this deployment and includes the ribbon text from Messages.</p>
+                        <p class="meta-row"><span class="muted">Manifest version</span> <code id="manifest-version">-</code></p>
+                        <p class="callout yellow" id="manifest-notice" hidden>Ribbon text has changed. Download the manifest and upload it again so Outlook shows the new text.</p>
                         <div class="copy-row">
                             <code class="mono" id="manifest-url"></code>
                             <button type="button" class="btn ghost small" id="copy-manifest">Copy</button>
                         </div>
-                        <a class="btn primary" id="download-manifest" href="/manifest.xml" download="sendshield-manifest.xml">Download manifest</a>
+                        <a class="btn primary" id="download-manifest" href="/manifest.xml?download">Download manifest</a>
                     </article>
                     <article class="card reveal">
                         <div class="card-head"><h3>Test on your own mailbox</h3></div>

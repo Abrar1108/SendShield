@@ -34,17 +34,45 @@
         return false;
     }
 
+    // FNV-1a 32-bit hash. Used so the public settings list pilot mailboxes as hashes, not addresses.
+    // Identical implementation in lib/config.js.
+    function hashString(text) {
+        var hash = 0x811c9dc5;
+        text = String(text || "");
+        for (var i = 0; i < text.length; i++) {
+            hash ^= text.charCodeAt(i);
+            hash = (hash + ((hash << 1) + (hash << 4) + (hash << 7) + (hash << 8) + (hash << 24))) >>> 0;
+        }
+        return ("0000000" + hash.toString(16)).slice(-8);
+    }
+
+    function isPilotUser(email, config) {
+        if (!config.pilotMode) return true;
+        var address = normalizeAddress(email);
+        if (!address) return false;
+        var hashes = config.pilotUserHashes || [];
+        var plain = config.pilotUsers || [];
+        var h = hashString(address);
+        for (var i = 0; i < hashes.length; i++) if (hashes[i] === h) return true;
+        for (var j = 0; j < plain.length; j++) if (normalizeAddress(plain[j]) === address) return true;
+        return false;
+    }
+
     // Splits recipients into external / internal / ignored. Externals are de-duplicated and lower-cased.
     function classifyRecipients(recipients, config) {
         var result = { externals: [], externalDomains: [], internalCount: 0, ignoredCount: 0 };
         var seen = {};
         var seenDomain = {};
         var ignored = {};
+        var ignoredDomains = [];
         var includeSub = config.includeSubdomains !== false;
         var i;
 
+        // Ignore-list entries are full addresses, or "@domain" for a whole domain (e.g. tracking services).
         for (i = 0; i < (config.ignoredAddresses || []).length; i++) {
-            ignored[normalizeAddress(config.ignoredAddresses[i])] = true;
+            var entry = normalizeAddress(config.ignoredAddresses[i]);
+            if (entry.charAt(0) === "@") ignoredDomains.push(entry.substring(1));
+            else ignored[entry] = true;
         }
 
         for (i = 0; i < (recipients || []).length; i++) {
@@ -52,7 +80,7 @@
             var domain = domainOf(address);
             // Exchange-only addresses (no "@") resolve inside the organisation.
             if (!domain) { result.internalCount++; continue; }
-            if (ignored[address]) { result.ignoredCount++; continue; }
+            if (ignored[address] || domainInList(domain, ignoredDomains, includeSub)) { result.ignoredCount++; continue; }
             if (domainInList(domain, config.internalDomains, includeSub)) { result.internalCount++; continue; }
             if (domainInList(domain, config.trustedDomains, includeSub)) { result.ignoredCount++; continue; }
             if (seen[address]) continue;
@@ -145,9 +173,13 @@
     function evaluateSend(input) {
         var config = input.config;
         if (!config.enabled) return { action: "allow", reason: "disabled" };
+        if (!isPilotUser(input.userEmail, config)) return { action: "allow", reason: "not_pilot" };
 
         var cls = classifyRecipients(input.recipients, config);
         if (cls.externals.length === 0) return { action: "allow", reason: "internal", classification: cls };
+        if (cls.externals.length < (config.minExternalRecipients || 1)) {
+            return { action: "allow", reason: "below_threshold", classification: cls };
+        }
 
         var session = input.session || {};
         var attachments = config.confirmAttachments ? (input.attachments || []) : [];
@@ -188,6 +220,8 @@
         normalizeDomain: normalizeDomain,
         domainOf: domainOf,
         domainInList: domainInList,
+        hashString: hashString,
+        isPilotUser: isPilotUser,
         classifyRecipients: classifyRecipients,
         pending: pending,
         union: union,

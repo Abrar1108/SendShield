@@ -29,19 +29,6 @@
       ]
     },
     {
-      "source": "/manifest.xml",
-      "headers": [
-        {
-          "key": "Cache-Control",
-          "value": "no-cache, must-revalidate"
-        },
-        {
-          "key": "Content-Type",
-          "value": "application/xml; charset=utf-8"
-        }
-      ]
-    },
-    {
       "source": "/admin/(.*)",
       "headers": [
         {
@@ -65,6 +52,12 @@
           "value": "default-src 'self'; img-src 'self' data:; style-src 'self' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; script-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
         }
       ]
+    }
+  ],
+  "rewrites": [
+    {
+      "source": "/manifest.xml",
+      "destination": "/api/manifest"
     }
   ]
 }

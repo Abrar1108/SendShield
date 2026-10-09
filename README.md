@@ -14,15 +14,22 @@ Design rules:
 - **Fails open.** On any error, or after 4 seconds (configurable), the email is sent.
 - **No network calls while sending.** Settings are fetched in the background and cached. Built-in defaults are used until the first fetch.
 - **Never edits the email**, so it doesn't clash with Outreach or signature add-ins.
-- **Privacy.** Reports store event counts and recipient *domains* only, never addresses, subjects or file names.
+- **Privacy.** Reports store event counts and recipient *domains* only, never addresses, subjects or file names. Pilot mailboxes are published to the add-in as hashes, not addresses.
+- **Lightweight.** Internal-only email is decided after one read of the recipients; confirmations and attachments are read only when there are external recipients. The send handler is about 8 KB compressed.
+
+## Everything is set in the dashboard
+
+- **Settings:** on/off switch, pilot mode and pilot mailboxes, internal/trusted domains, ignored addresses or `@domains` (for Outreach and similar), confirmation style (tick each recipient, or one confirm-all tick), attachment confirmation, banner, prompt threshold, fail-open time, safety-net count, settings refresh interval, usage reporting.
+- **Messages:** every piece of text users see (the Outlook prompts, the banner, every line of the task pane and the ribbon button), with placeholders, reset-to-default and a live preview.
+- Changes reach Outlook at the next settings refresh (15 minutes by default). The task pane always loads the latest settings.
+- **Ribbon text** is part of the manifest. When it changes, the manifest version goes up and the dashboard asks you to upload the manifest again.
 
 ## Project layout
 
 ```
 src/addin/      add-in: send handler, task pane, icons
-src/admin/      dashboard (Overview, Settings, Audit log, Install)
-src/manifest.xml  manifest template (URLs filled in at build time)
-api/            Vercel functions: /api/config, /api/event, /api/admin/*
+src/admin/      dashboard (Overview, Settings, Messages, Audit log, Install)
+api/            Vercel functions: /api/config, /api/event, /api/manifest (served at /manifest.xml), /api/admin/*
 lib/            shared server code (settings, storage, auth, stats)
 scripts/        build.mjs (Vercel build), dev.mjs (local preview)
 test/           unit tests (npm test)

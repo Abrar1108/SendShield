@@ -8,7 +8,6 @@
     var VERSION = "__VERSION__";
     var DEFAULTS = __DEFAULT_CONFIG__;
     var CACHE_KEY = "sendshield.config.v1";
-    var REFRESH_AFTER_MS = 15 * 60 * 1000;
 
     var memoryConfig = null;
     var fetchedAt = 0;
@@ -112,7 +111,8 @@
     // Background refresh from /api/config. Never awaited on the send path.
     function refreshConfig(force, callback) {
         if (!hasServer()) { if (callback) callback(false); return; }
-        if (refreshing || (!force && fetchedAt && Date.now() - fetchedAt < REFRESH_AFTER_MS)) {
+        var minutes = (memoryConfig && memoryConfig.configRefreshMinutes) || DEFAULTS.configRefreshMinutes || 15;
+        if (refreshing || (!force && fetchedAt && Date.now() - fetchedAt < minutes * 60 * 1000)) {
             if (callback) callback(false);
             return;
         }
@@ -244,6 +244,10 @@
         }
     }
 
+    function userEmail() {
+        try { return Office.context.mailbox.userProfile.emailAddress || ""; } catch (e) { return ""; }
+    }
+
     function supports(version) {
         try {
             return Office.context.requirements.isSetSupported("Mailbox", version);
@@ -263,6 +267,7 @@
         getSession: getSession,
         setSession: setSession,
         sessionAvailable: sessionAvailable,
+        userEmail: userEmail,
         supports: supports
     };
 })(typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : this);

@@ -212,7 +212,7 @@ input[type="text"], input[type="password"], input[type="number"], textarea {
     transition: border-color 150ms;
 }
 textarea { resize: vertical; min-height: 44px; line-height: 1.5; }
-textarea[name$="Domains"], textarea[name="ignoredAddresses"] { font-family: var(--mono); font-size: 13px; }
+.mono-input { font-family: var(--mono) !important; font-size: 13px !important; }
 input:focus, textarea:focus { border-color: var(--text-strong); outline: none; }
 .check { display: flex; gap: 10px; align-items: flex-start; margin-top: 14px; font-size: 14px; cursor: pointer; }
 .check input { margin: 4px 0 0; width: 16px; height: 16px; accent-color: var(--text-strong); flex: none; }
@@ -267,6 +267,79 @@ input:focus, textarea:focus { border-color: var(--text-strong); outline: none; }
 .copy-row code { background: none; border: 0; padding: 0; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .steps { margin: 0; padding-left: 20px; display: grid; gap: 10px; font-size: 14px; }
 
+/* ------------------------------------------------------------ settings extras */
+.rule { border: 0; border-top: 1px solid var(--border); margin: 20px 0; }
+.choice { border: 0; padding: 0; margin: 0 0 4px; display: grid; gap: 8px; }
+.choice legend { font-size: 13px; font-weight: 500; color: var(--text-strong); margin-bottom: 8px; padding: 0; }
+.choice-card { display: flex; gap: 10px; align-items: flex-start; border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; cursor: pointer; transition: border-color 150ms, background 150ms; }
+.choice-card:hover { background: var(--surface-2); }
+.choice-card:has(input:checked) { border-color: var(--text-strong); }
+.choice-card input { margin: 4px 0 0; accent-color: var(--text-strong); flex: none; }
+.meta-row { display: flex; align-items: center; gap: 8px; margin: 12px 0 0; font-size: 14px; }
+
+/* ------------------------------------------------------------ messages editor */
+.messages-layout { display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: 24px; align-items: start; }
+.message-groups { display: grid; gap: 16px; }
+.msg-group .card-head p { margin: 2px 0 0; font-size: 13px; color: var(--muted); font-weight: 400; }
+.msg-group .card-head { align-items: flex-start; }
+.msg-field { margin-top: 18px; }
+.msg-field:first-of-type { margin-top: 0; }
+.msg-field .field { margin-top: 0; }
+.msg-tools { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
+.var-chip {
+    font: 11px var(--mono); background: var(--blue-bg); color: var(--blue); border: 0; border-radius: 9999px;
+    padding: 2px 8px; cursor: pointer; transition: transform 120ms var(--ease);
+}
+.var-chip:active { transform: scale(0.96); }
+.link-btn { margin-left: auto; background: none; border: 0; padding: 0; font: inherit; font-size: 12px; color: var(--muted); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+.link-btn:hover { color: var(--text-strong); }
+.modified-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--yellow); display: inline-block; margin-left: 4px; }
+.preview-col { position: relative; }
+.preview-sticky { position: sticky; top: 84px; }
+.preview-switch { display: flex; width: 100%; overflow-x: auto; }
+.preview-switch button { flex: 1; white-space: nowrap; padding: 5px 8px; }
+.preview { margin-top: 12px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface-2); padding: 20px; min-height: 260px; }
+
+/* Outlook-like mock surfaces. Fixed light colours so the preview looks like Outlook in either theme. */
+.ol { font: 13px/1.45 "Segoe UI", -apple-system, system-ui, sans-serif; color: #242424; }
+.ol-dialog { background: #ffffff; border: 1px solid #d1d1d1; border-radius: 8px; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08); padding: 20px; }
+.ol-dialog h4 { margin: 0 0 8px; font-size: 15px; font-weight: 600; color: #242424; display: flex; align-items: center; gap: 8px; }
+.ol-dialog h4 img { width: 18px; height: 18px; }
+.ol-dialog p { margin: 0; white-space: pre-wrap; word-break: break-word; }
+.ol-buttons { display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px; }
+.ol-btn { font: 600 13px "Segoe UI", system-ui, sans-serif; border-radius: 4px; padding: 6px 14px; border: 1px solid #d1d1d1; background: #ffffff; color: #242424; }
+.ol-btn.primary { background: #0f6cbd; border-color: #0f6cbd; color: #ffffff; }
+.ol-count { margin-top: 10px; font: 11px var(--mono); color: #707070; }
+.ol-count.over { color: #b10e1c; }
+.ol-compose { background: #ffffff; border: 1px solid #d1d1d1; border-radius: 8px; overflow: hidden; }
+.ol-compose-row { padding: 8px 12px; border-bottom: 1px solid #ebebeb; color: #616161; }
+.ol-banner { display: flex; gap: 8px; align-items: flex-start; background: #ebf3fc; color: #242424; padding: 8px 12px; border-bottom: 1px solid #d6e6f9; }
+.ol-banner img { width: 16px; height: 16px; margin-top: 2px; }
+.ol-compose-body { height: 90px; }
+.ol-pane { background: #ffffff; border: 1px solid #d1d1d1; border-radius: 8px; overflow: hidden; max-width: 320px; margin: 0 auto; }
+.ol-pane-head { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border-bottom: 1px solid #ebebeb; font-weight: 600; font-size: 14px; }
+.ol-pane-head img { width: 18px; height: 18px; }
+.ol-pane-body { padding: 12px; display: grid; gap: 8px; }
+.ol-pane-body h5 { margin: 4px 0 0; font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; color: #616161; display: flex; justify-content: space-between; }
+.ol-pane-body h5 span { text-transform: none; letter-spacing: 0; font-weight: 400; }
+.ol-list { border: 1px solid #e0e0e0; border-radius: 6px; }
+.ol-list div { display: flex; gap: 8px; align-items: center; padding: 7px 10px; border-top: 1px solid #ebebeb; font-size: 12px; word-break: break-all; }
+.ol-list div:first-child { border-top: 0; }
+.ol-box { width: 13px; height: 13px; border: 1px solid #8a8a8a; border-radius: 3px; flex: none; }
+.ol-box.on { background: #0f6cbd; border-color: #0f6cbd; }
+.ol-check { display: flex; gap: 8px; align-items: flex-start; font-size: 12px; }
+.ol-check .ol-box { margin-top: 2px; }
+.ol-confirm { background: #0f6cbd; color: #ffffff; border-radius: 4px; text-align: center; padding: 8px; font-weight: 600; }
+.ol-note { font-size: 11px; color: #707070; }
+.ol-ok { background: #e7f5ec; color: #135e33; border-radius: 4px; padding: 8px; font-size: 12px; }
+.ol-foot { display: flex; justify-content: space-between; border-top: 1px solid #ebebeb; padding: 8px 12px; font-size: 11px; color: #707070; }
+.ol-ribbon { background: #ffffff; border: 1px solid #d1d1d1; border-radius: 8px; padding: 12px 16px 8px; display: inline-flex; flex-direction: column; align-items: center; gap: 4px; }
+.ol-ribbon-btn { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 6px 10px; border-radius: 4px; background: #f5f5f5; font-size: 12px; max-width: 120px; text-align: center; }
+.ol-ribbon-btn img { width: 32px; height: 32px; }
+.ol-ribbon-group { font-size: 11px; color: #707070; border-top: 1px solid #ebebeb; padding-top: 4px; width: 100%; text-align: center; }
+.ol-tooltip { margin-top: 10px; background: #ffffff; border: 1px solid #d1d1d1; border-radius: 6px; padding: 10px 12px; max-width: 260px; box-shadow: 0 4px 12px rgba(0,0,0,0.06); }
+.ol-tooltip strong { display: block; margin-bottom: 2px; }
+
 /* ------------------------------------------------------------ toast */
 .toast {
     position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); z-index: 20;
@@ -284,6 +357,10 @@ input:focus, textarea:focus { border-color: var(--text-strong); outline: none; }
 }
 
 /* ------------------------------------------------------------ responsive */
+@media (max-width: 1000px) {
+    .messages-layout { grid-template-columns: 1fr; }
+    .preview-sticky { position: static; }
+}
 @media (max-width: 900px) {
     .bento { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .chart-card, .list-card { grid-column: span 2; }

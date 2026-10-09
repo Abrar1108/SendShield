@@ -1,4 +1,5 @@
-// SendShield task pane: tick each external recipient (and the attachments) before sending.
+// SendShield task pane: confirm external recipients (and attachments) before sending.
+// Every visible string comes from config.messages, which admins edit in the dashboard.
 (function () {
     "use strict";
 
@@ -9,8 +10,8 @@
     var state = { externals: [], attachments: [], confirmed: [], attConfirmed: [] };
 
     function $(id) { return document.getElementById(id); }
-
     function show(id, visible) { $(id).hidden = !visible; }
+    function msg(key, values) { return Core.fillTemplate(config.messages[key], values || {}); }
 
     function setStatus(text, isError) {
         var el = $("status");
@@ -19,66 +20,92 @@
         el.hidden = !text;
     }
 
+    function eachStyle() { return config.confirmStyle !== "all"; }
+
+    function applyStaticText() {
+        document.title = config.messages.taskpaneTitle;
+        $("title").textContent = msg("taskpaneTitle");
+        $("intro").textContent = msg("taskpaneIntro");
+        $("recipients-heading").textContent = msg("recipientsHeading");
+        $("select-all-label").textContent = msg("selectAll");
+        $("attachments-heading").textContent = msg("attachmentsHeading");
+        $("attachments-label").textContent = msg("attachmentsCheckbox");
+        $("confirm").textContent = msg("confirmButton");
+        $("none").textContent = msg("noExternal");
+        $("legacy").textContent = msg("legacyNotice");
+    }
+
+    function showOnly(message) {
+        show("loading", false);
+        show("externals", false);
+        show("attachments", false);
+        show("actions", false);
+        $("none").textContent = message;
+        show("none", true);
+        setStatus("");
+    }
+
     function render(recipients) {
+        applyStaticText();
         var cls = Core.classifyRecipients(recipients, config);
         var byAddress = {};
         for (var i = 0; i < recipients.length; i++) {
             var key = String(recipients[i].emailAddress || "").toLowerCase();
             if (!byAddress[key]) byAddress[key] = recipients[i];
         }
-
         state.externals = cls.externals;
-        show("loading", false);
-        $("internal-summary").textContent = cls.internalCount
-            ? cls.internalCount + " internal recipient" + (cls.internalCount === 1 ? "" : "s")
-            : "";
+        $("internal-summary").textContent = cls.internalCount ? msg("internalSummary", { count: cls.internalCount }) : "";
 
-        if (!config.enabled || cls.externals.length === 0) {
-            show("externals", false);
-            show("attachments", false);
-            show("actions", false);
-            show("none", true);
-            setStatus("");
-            return;
-        }
+        if (!Core.isPilotUser(RT.userEmail(), config)) { showOnly(msg("pilotInactive")); return; }
+        if (!config.enabled || cls.externals.length === 0) { showOnly(msg("noExternal")); return; }
+
+        show("loading", false);
         show("none", false);
         show("externals", true);
         show("actions", true);
-        $("intro").textContent = config.messages.taskpaneIntro;
         $("ext-count").textContent = "(" + cls.externals.length + ")";
+        show("select-all-row", eachStyle());
+        show("confirm-all-row", !eachStyle());
+        $("confirm-all-label").textContent = msg("confirmAllCheckbox", { count: cls.externals.length });
+        $("confirm-all").checked = Core.pending(cls.externals, state.confirmed).length === 0;
 
         var list = $("recipient-list");
+        list.className = "list" + (eachStyle() ? "" : " plain");
         list.innerHTML = "";
         for (var r = 0; r < cls.externals.length; r++) {
             var address = cls.externals[r];
             var info = byAddress[address] || {};
             var li = document.createElement("li");
-            var label = document.createElement("label");
-            var box = document.createElement("input");
-            box.type = "checkbox";
-            box.className = "recipient-box";
-            box.value = address;
-            box.checked = Core.pending([address], state.confirmed).length === 0;
-            box.addEventListener("change", updateButton);
-
+            var holder = document.createElement(eachStyle() ? "label" : "div");
+            holder.className = "recipient";
+            if (eachStyle()) {
+                var box = document.createElement("input");
+                box.type = "checkbox";
+                box.className = "recipient-box";
+                box.value = address;
+                box.checked = Core.pending([address], state.confirmed).length === 0;
+                box.addEventListener("change", updateButton);
+                holder.appendChild(box);
+            }
             var text = document.createElement("span");
             var addr = document.createElement("span");
             addr.className = "addr";
             addr.textContent = address;
-            var chip = document.createElement("span");
-            chip.className = "chip";
-            chip.textContent = info.field || "";
             text.appendChild(addr);
-            if (info.field) text.appendChild(chip);
+            if (info.field) {
+                var chip = document.createElement("span");
+                chip.className = "chip";
+                chip.textContent = info.field;
+                text.appendChild(chip);
+            }
             if (info.displayName && String(info.displayName).toLowerCase() !== address) {
                 var name = document.createElement("span");
                 name.className = "name";
                 name.textContent = info.displayName;
                 text.appendChild(name);
             }
-            label.appendChild(box);
-            label.appendChild(text);
-            li.appendChild(label);
+            holder.appendChild(text);
+            li.appendChild(holder);
             list.appendChild(li);
         }
 
@@ -110,21 +137,25 @@
     }
 
     function updateButton() {
-        var boxes = recipientBoxes();
-        var ticked = boxes.filter(function (b) { return b.checked; }).length;
+        var left;
+        if (eachStyle()) {
+            var boxes = recipientBoxes();
+            var ticked = boxes.filter(function (b) { return b.checked; }).length;
+            $("select-all").checked = boxes.length > 0 && ticked === boxes.length;
+            left = boxes.length - ticked;
+        } else {
+            left = $("confirm-all").checked ? 0 : state.externals.length;
+        }
         var attOk = !attachmentsNeeded() || $("attachments-ok").checked;
-        $("select-all").checked = boxes.length > 0 && ticked === boxes.length;
-        $("confirm").disabled = !(ticked === boxes.length && attOk);
-        var left = boxes.length - ticked;
+        $("confirm").disabled = !(left === 0 && attOk);
         $("progress").textContent = left > 0
-            ? left + " recipient" + (left === 1 ? "" : "s") + " still to tick"
-            : (attOk ? "" : "Please confirm the attachments");
+            ? (eachStyle() ? msg("remainingRecipients", { count: left }) : "")
+            : (attOk ? "" : msg("remainingAttachments"));
         setStatus("");
     }
 
     function confirm() {
-        var confirmedNow = recipientBoxes().map(function (b) { return b.value; });
-        var confirmed = Core.union(state.confirmed, confirmedNow);
+        var confirmed = Core.union(state.confirmed, state.externals);
         var attConfirmed = attachmentsNeeded() ? Core.union(state.attConfirmed, state.attachments) : state.attConfirmed;
         $("confirm").disabled = true;
         RT.setSession(item, {
@@ -133,24 +164,20 @@
             ssBlocks: 0
         }, function (ok) {
             if (!ok) {
-                setStatus("Couldn't save your confirmation. You can still send - Outlook will ask you to confirm in a dialog.", true);
+                setStatus(msg("saveFailed"), true);
                 updateButton();
                 return;
             }
             state.confirmed = confirmed;
             state.attConfirmed = attConfirmed;
-            setStatus("Confirmed. You can now click Send.");
+            setStatus(msg("confirmedMessage"));
             $("progress").textContent = "";
             RT.sendEvent(config, "taskpane_confirmed", {
                 externalCount: state.externals.length,
-                externalDomains: unique(state.externals.map(Core.domainOf)),
+                externalDomains: Core.union([], state.externals.map(Core.domainOf)),
                 attachmentCount: state.attachments.length
             });
         });
-    }
-
-    function unique(list) {
-        return Core.union([], list);
     }
 
     function reload() {
@@ -178,6 +205,7 @@
 
         $("confirm").addEventListener("click", confirm);
         $("attachments-ok").addEventListener("change", updateButton);
+        $("confirm-all").addEventListener("change", updateButton);
         $("select-all").addEventListener("change", function (e) {
             recipientBoxes().forEach(function (b) { b.checked = e.target.checked; });
             updateButton();

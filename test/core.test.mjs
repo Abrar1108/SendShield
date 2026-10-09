@@ -110,3 +110,24 @@ test("formatting helpers", () => {
     assert.equal(Core.truncate("x".repeat(300), 250).length, 250);
     assert.equal(Core.fillTemplate("{count} to {list} {missing}", { count: 2, list: "a, b" }), "2 to a, b {missing}");
 });
+
+test("ignore list accepts whole domains (e.g. tracking services)", () => {
+    const cls = Core.classifyRecipients(r("a1b2@bcc.tracker.example", "x@client.com"), config({ ignoredAddresses: ["@tracker.example"] }));
+    assert.deepEqual([...cls.externals], ["x@client.com"]);
+    assert.equal(cls.ignoredCount, 1);
+});
+
+test("pilot mode only applies to listed mailboxes", () => {
+    const cfg = config({ pilotMode: true, pilotUsers: [], pilotUserHashes: [Core.hashString("pilot@toluna.com")] });
+    const base = { config: cfg, recipients: r("x@client.com"), attachments: [], session: {}, sessionAvailable: true };
+    assert.equal(Core.evaluateSend({ ...base, userEmail: "Pilot@Toluna.com" }).action, "block");
+    const other = Core.evaluateSend({ ...base, userEmail: "someone@toluna.com" });
+    assert.equal(other.action, "allow");
+    assert.equal(other.reason, "not_pilot");
+});
+
+test("prompt threshold on number of external recipients", () => {
+    const base = { config: config({ minExternalRecipients: 3 }), attachments: [], session: {}, sessionAvailable: true };
+    assert.equal(Core.evaluateSend({ ...base, recipients: r("a@x.com", "b@y.com") }).reason, "below_threshold");
+    assert.equal(Core.evaluateSend({ ...base, recipients: r("a@x.com", "b@y.com", "c@z.com") }).action, "block");
+});

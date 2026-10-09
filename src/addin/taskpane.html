@@ -12,42 +12,47 @@
     <script type="text/javascript" src="taskpane.js?v=__VERSION__" defer></script>
 </head>
 <body>
+    <!-- All visible text is set from the dashboard settings by taskpane.js. -->
     <header class="top">
         <img src="assets/sendshield-32.png" alt="" width="24" height="24">
-        <h1>SendShield</h1>
+        <h1 id="title">SendShield</h1>
     </header>
 
     <main id="app">
-        <p class="muted" id="loading">Checking recipients…</p>
+        <p class="muted" id="loading">&hellip;</p>
 
         <section id="externals" hidden>
             <p id="intro" class="intro"></p>
             <div class="section-head">
-                <h2>External recipients <span class="count" id="ext-count"></span></h2>
-                <label class="select-all"><input type="checkbox" id="select-all"> Select all</label>
+                <h2><span id="recipients-heading"></span> <span class="count" id="ext-count"></span></h2>
+                <label class="select-all" id="select-all-row"><input type="checkbox" id="select-all"> <span id="select-all-label"></span></label>
             </div>
             <ul id="recipient-list" class="list"></ul>
+            <label class="check-row" id="confirm-all-row" hidden>
+                <input type="checkbox" id="confirm-all">
+                <span id="confirm-all-label"></span>
+            </label>
         </section>
 
         <section id="attachments" hidden>
             <div class="section-head">
-                <h2>Attachments <span class="count" id="att-count"></span></h2>
+                <h2><span id="attachments-heading"></span> <span class="count" id="att-count"></span></h2>
             </div>
             <ul id="attachment-list" class="list plain"></ul>
             <label class="check-row">
                 <input type="checkbox" id="attachments-ok">
-                <span>I have checked these attachments are correct to send outside Toluna.</span>
+                <span id="attachments-label"></span>
             </label>
         </section>
 
         <div id="actions" hidden>
-            <button type="button" id="confirm" class="primary" disabled>Confirm</button>
+            <button type="button" id="confirm" class="primary" disabled></button>
             <p class="muted small" id="progress"></p>
         </div>
 
         <div id="status" class="status" role="status" hidden></div>
-        <p id="none" class="ok-msg" hidden>No external recipients. Nothing to confirm.</p>
-        <p id="legacy" class="warn-msg" hidden>Your Outlook version can't store confirmations. When you click Send you'll get a dialog asking you to confirm instead.</p>
+        <p id="none" class="ok-msg" hidden></p>
+        <p id="legacy" class="warn-msg" hidden></p>
     </main>
 
     <footer class="foot muted small">
