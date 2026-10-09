@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>SendShield Admin</title>
+    <link rel="icon" type="image/png" href="/addin/assets/sendshield-32.png">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&family=Instrument+Serif&display=swap">
+    <link rel="stylesheet" href="admin.css?v=__VERSION__">
+    <script src="admin.js?v=__VERSION__" defer></script>
+</head>
+<body>
+    <div class="ambient" aria-hidden="true"></div>
+
+    <header class="topbar">
+        <div class="topbar-inner">
+            <a class="brand" href="/admin/">
+                <span class="logo-plate"><img src="assets/toluna-logo.png" alt="Toluna" width="96" height="18"></span>
+                <span class="brand-divider" aria-hidden="true"></span>
+                <span class="brand-name">SendShield</span>
+            </a>
+            <div class="user" id="user-box" hidden>
+                <span class="user-name" id="user-name"></span>
+                <button type="button" class="btn ghost small" id="sign-out">Sign out</button>
+            </div>
+        </div>
+    </header>
+
+    <main class="wrap">
+        <!-- Sign in -->
+        <section id="login-view" class="login" hidden>
+            <div class="login-card reveal">
+                <p class="eyebrow">Administration</p>
+                <h1 class="serif">Sign in to SendShield</h1>
+                <p class="muted">Manage external-recipient confirmation for Toluna mailboxes.</p>
+                <form id="login-form" class="stack" autocomplete="on">
+                    <label class="field">
+                        <span>Your name</span>
+                        <input type="text" name="name" id="login-name" autocomplete="name" required maxlength="60" placeholder="Shown in the audit log">
+                    </label>
+                    <label class="field">
+                        <span>Admin password</span>
+                        <input type="password" name="password" id="login-password" autocomplete="current-password" required>
+                    </label>
+                    <p class="callout red" id="login-error" hidden></p>
+                    <button type="submit" class="btn primary block" id="login-submit">Sign in</button>
+                </form>
+                <p class="fine">Interim password sign-in for testing. Microsoft sign-in will replace it before production.</p>
+            </div>
+        </section>
+
+        <!-- App -->
+        <section id="app-view" hidden>
+            <div class="page-head reveal">
+                <div>
+                    <p class="eyebrow">External recipient confirmation</p>
+                    <h1 class="serif">SendShield</h1>
+                    <p class="meta" id="meta-line"></p>
+                </div>
+                <div class="status-block">
+                    <span class="tag" id="protection-tag">Loading</span>
+                </div>
+            </div>
+
+            <p class="callout yellow reveal" id="storage-warning" hidden>
+                Storage is not connected, so settings won't be saved and reports are empty.
+                In Vercel, open <strong>Storage</strong>, add <strong>Upstash for Redis</strong> to this project, then redeploy.
+            </p>
+
+            <nav class="tabs reveal" role="tablist" aria-label="Sections">
+                <button type="button" role="tab" data-tab="overview" aria-selected="true">Overview</button>
+                <button type="button" role="tab" data-tab="settings" aria-selected="false">Settings</button>
+                <button type="button" role="tab" data-tab="audit" aria-selected="false">Audit log</button>
+                <button type="button" role="tab" data-tab="install" aria-selected="false">Install</button>
+            </nav>
+
+            <!-- Overview -->
+            <section class="panel" data-panel="overview">
+                <div class="panel-head">
+                    <h2>Activity</h2>
+                    <div class="segmented" id="range" role="radiogroup" aria-label="Date range">
+                        <button type="button" data-days="7" aria-checked="false" role="radio">7 days</button>
+                        <button type="button" data-days="30" aria-checked="true" role="radio">30 days</button>
+                        <button type="button" data-days="90" aria-checked="false" role="radio">90 days</button>
+                    </div>
+                </div>
+
+                <div class="bento">
+                    <article class="card kpi reveal" data-index="0">
+                        <p class="kpi-label">Prompts shown</p>
+                        <p class="kpi-value" id="kpi-prompt_shown">–</p>
+                        <p class="kpi-note">Sends paused for confirmation</p>
+                    </article>
+                    <article class="card kpi reveal" data-index="1">
+                        <p class="kpi-label">Confirmed in task pane</p>
+                        <p class="kpi-value" id="kpi-taskpane_confirmed">–</p>
+                        <p class="kpi-note">Recipients ticked by users</p>
+                    </article>
+                    <article class="card kpi reveal" data-index="2">
+                        <p class="kpi-label">Sent externally</p>
+                        <p class="kpi-value" id="kpi-sent_confirmed">–</p>
+                        <p class="kpi-note">Sent after all recipients were confirmed</p>
+                    </article>
+                    <article class="card kpi reveal" data-index="3">
+                        <p class="kpi-label">Safety net used</p>
+                        <p class="kpi-value" id="kpi-safety">–</p>
+                        <p class="kpi-note" id="kpi-safety-note">Loop-breaker and fail-open events</p>
+                    </article>
+
+                    <article class="card chart-card reveal" data-index="4">
+                        <div class="card-head">
+                            <h3>Prompts shown per day</h3>
+                            <button type="button" class="btn ghost small" id="toggle-table" aria-expanded="false">Show table</button>
+                        </div>
+                        <div class="chart" id="chart" role="img" aria-label="Prompts shown per day"></div>
+                        <div class="tooltip" id="tooltip" hidden></div>
+                        <div class="table-wrap" id="daily-table" hidden></div>
+                    </article>
+
+                    <article class="card list-card reveal" data-index="5">
+                        <div class="card-head"><h3>Top external domains</h3></div>
+                        <ol class="rank" id="top-domains"></ol>
+                        <p class="fine">Counted when an email is sent after confirmation. Addresses are never stored.</p>
+                    </article>
+
+                    <article class="card list-card reveal" data-index="6">
+                        <div class="card-head"><h3>Outlook clients</h3></div>
+                        <ol class="rank" id="platforms"></ol>
+                    </article>
+                </div>
+            </section>
+
+            <!-- Settings -->
+            <section class="panel" data-panel="settings" hidden>
+                <form id="settings-form" novalidate>
+                    <div class="settings-grid">
+                        <article class="card reveal">
+                            <div class="card-head"><h3>Protection</h3></div>
+                            <label class="switch-row">
+                                <span>
+                                    <strong>SendShield enabled</strong>
+                                    <span class="muted block-text">Turn off to stop all prompts immediately. Users' Outlook picks this up within about 15 minutes.</span>
+                                </span>
+                                <input type="checkbox" class="switch" name="enabled">
+                            </label>
+                        </article>
+
+                        <article class="card reveal">
+                            <div class="card-head"><h3>Domains</h3></div>
+                            <label class="field">
+                                <span>Internal domains <em>One per line. Never prompted.</em></span>
+                                <textarea name="internalDomains" rows="4" spellcheck="false"></textarea>
+                            </label>
+                            <label class="check">
+                                <input type="checkbox" name="includeSubdomains">
+                                <span>Include subdomains (e.g. <code>uk.toluna.com</code>)</span>
+                            </label>
+                            <label class="field">
+                                <span>Trusted external domains <em>One per line. Not prompted - use sparingly.</em></span>
+                                <textarea name="trustedDomains" rows="3" spellcheck="false"></textarea>
+                            </label>
+                            <label class="field">
+                                <span>Ignored addresses <em>System addresses added by other add-ins, e.g. Outreach.</em></span>
+                                <textarea name="ignoredAddresses" rows="3" spellcheck="false"></textarea>
+                            </label>
+                        </article>
+
+                        <article class="card reveal">
+                            <div class="card-head"><h3>Behaviour</h3></div>
+                            <label class="check">
+                                <input type="checkbox" name="confirmAttachments">
+                                <span>Ask users to confirm attachments on external emails</span>
+                            </label>
+                            <label class="check">
+                                <input type="checkbox" name="showRecipientBanner">
+                                <span>Show a banner while external recipients are added</span>
+                            </label>
+                            <label class="check">
+                                <input type="checkbox" name="telemetryEnabled">
+                                <span>Collect usage counts for reports (domains and counts only)</span>
+                            </label>
+                            <div class="two-col">
+                                <label class="field">
+                                    <span>Fail-open after <em>Milliseconds, 1000-8000</em></span>
+                                    <input type="number" name="failOpenTimeoutMs" min="1000" max="8000" step="500">
+                                </label>
+                                <label class="field">
+                                    <span>Loop-breaker after <em>Blocked sends, 1-5</em></span>
+                                    <input type="number" name="maxBlocksBeforeFallback" min="1" max="5" step="1">
+                                </label>
+                            </div>
+                        </article>
+
+                        <article class="card reveal">
+                            <div class="card-head"><h3>Messages</h3></div>
+                            <p class="fine">Placeholders: <code>{count}</code> <code>{list}</code> <code>{attachments}</code> <code>{hint}</code></p>
+                            <label class="field">
+                                <span>Send prompt <em class="counter" data-for="blockPrompt"></em></span>
+                                <textarea name="messages.blockPrompt" rows="2" maxlength="200"></textarea>
+                            </label>
+                            <label class="field">
+                                <span>Attachment prompt <em class="counter" data-for="attachmentPrompt"></em></span>
+                                <textarea name="messages.attachmentPrompt" rows="2" maxlength="200"></textarea>
+                            </label>
+                            <label class="field">
+                                <span>Safety-net prompt <em class="counter" data-for="fallbackPrompt"></em></span>
+                                <textarea name="messages.fallbackPrompt" rows="2" maxlength="200"></textarea>
+                            </label>
+                            <div class="two-col">
+                                <label class="field">
+                                    <span>Review button <em class="counter" data-for="reviewButton"></em></span>
+                                    <input type="text" name="messages.reviewButton" maxlength="20">
+                                </label>
+                                <label class="field">
+                                    <span>Banner <em class="counter" data-for="banner"></em></span>
+                                    <input type="text" name="messages.banner" maxlength="120">
+                                </label>
+                            </div>
+                            <label class="field">
+                                <span>Task pane introduction <em class="counter" data-for="taskpaneIntro"></em></span>
+                                <textarea name="messages.taskpaneIntro" rows="2" maxlength="300"></textarea>
+                            </label>
+                        </article>
+                    </div>
+
+                    <div class="callout red" id="settings-errors" hidden></div>
+
+                    <div class="savebar" id="savebar">
+                        <span class="muted" id="save-state">No unsaved changes</span>
+                        <div class="savebar-actions">
+                            <button type="button" class="btn ghost" id="discard" disabled>Discard</button>
+                            <button type="submit" class="btn primary" id="save" disabled>Save settings</button>
+                        </div>
+                    </div>
+                </form>
+            </section>
+
+            <!-- Audit -->
+            <section class="panel" data-panel="audit" hidden>
+                <article class="card reveal">
+                    <div class="card-head"><h3>Settings changes</h3></div>
+                    <div class="table-wrap">
+                        <table class="table">
+                            <thead><tr><th>When</th><th>Who</th><th>Changed</th><th>Status</th></tr></thead>
+                            <tbody id="audit-body"></tbody>
+                        </table>
+                    </div>
+                </article>
+            </section>
+
+            <!-- Install -->
+            <section class="panel" data-panel="install" hidden>
+                <div class="bento install">
+                    <article class="card reveal">
+                        <div class="card-head"><h3>Add-in manifest</h3></div>
+                        <p class="muted">Upload this file in Outlook or the Microsoft 365 admin center. It always points at this deployment.</p>
+                        <div class="copy-row">
+                            <code class="mono" id="manifest-url"></code>
+                            <button type="button" class="btn ghost small" id="copy-manifest">Copy</button>
+                        </div>
+                        <a class="btn primary" id="download-manifest" href="/manifest.xml" download="sendshield-manifest.xml">Download manifest</a>
+                    </article>
+                    <article class="card reveal">
+                        <div class="card-head"><h3>Test on your own mailbox</h3></div>
+                        <ol class="steps">
+                            <li>Open <a href="https://aka.ms/olksideload" target="_blank" rel="noopener">aka.ms/olksideload</a> (Outlook on the web, My add-ins).</li>
+                            <li>Choose <strong>Custom Add-ins</strong>, then <strong>Add a custom add-in</strong>, <strong>Add from file</strong>.</li>
+                            <li>Select the downloaded manifest. It appears in classic Outlook, new Outlook and Mac within a few minutes.</li>
+                            <li>Write an email to an external address and click <kbd>Send</kbd>.</li>
+                        </ol>
+                    </article>
+                    <article class="card reveal">
+                        <div class="card-head"><h3>Deploy to a pilot group</h3></div>
+                        <ol class="steps">
+                            <li>Microsoft 365 admin center, <strong>Settings</strong>, <strong>Integrated apps</strong>, <strong>Upload custom apps</strong>.</li>
+                            <li>Choose <strong>Office Add-in</strong> and upload the manifest.</li>
+                            <li>Assign it to a pilot group. Remove SendGuard for the same users to avoid two prompts.</li>
+                            <li>Allow up to 24 hours for it to reach every mailbox.</li>
+                        </ol>
+                    </article>
+                </div>
+            </section>
+        </section>
+    </main>
+
+    <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+</body>
+</html>

@@ -1,0 +1,18 @@
+{
+  "name": "sendshield",
+  "version": "6.0.0",
+  "private": true,
+  "description": "Outlook add-in that asks users to confirm external recipients before sending, with an admin dashboard.",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "dev": "node scripts/dev.mjs",
+    "test": "node --test test/"
+  },
+  "sendshield": {
+    "addinId": "cb06eb0b-cc2d-4d26-a426-600bd698fa54"
+  }
+}
